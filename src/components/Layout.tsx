@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   LayoutDashboard,
   AppWindow,
@@ -14,14 +14,11 @@ import {
   Bell,
   ChevronDown,
   User,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
   Check,
   ExternalLink,
   FilePlus,
 } from "lucide-react";
-import type { Role } from "../types";
+import type { AppState, Role } from "../types";
 import type { Page } from "../App";
 
 interface NavItem {
@@ -116,49 +113,17 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-// Data notifikasi dummy (diambil dari desain baru)
-const notifPreview = [
-  {
-    id: 1,
-    icon: Bell,
-    color: "text-indigo-600 bg-indigo-50",
-    title: "Review diperlukan: SISPRO v2.1",
-    time: "9 mnt lalu",
-    unread: true,
-  },
-  {
-    id: 2,
-    icon: AlertTriangle,
-    color: "text-red-600 bg-red-50",
-    title: "Action Item overdue: Fix CVE-2024-1234",
-    time: "32 mnt lalu",
-    unread: true,
-  },
-  {
-    id: 3,
-    icon: XCircle,
-    color: "text-red-600 bg-red-50",
-    title: "Portal HR ditolak oleh Security Team",
-    time: "1 jam lalu",
-    unread: true,
-  },
-  {
-    id: 4,
-    icon: FileText,
-    color: "text-blue-600 bg-blue-50",
-    title: "Handover baru: ERP Finance Modul AP",
-    time: "2 jam lalu",
-    unread: false,
-  },
-  {
-    id: 5,
-    icon: CheckCircle,
-    color: "text-emerald-600 bg-emerald-50",
-    title: "SIMDA v3 disetujui oleh Manager O&M",
-    time: "Kemarin",
-    unread: false,
-  },
-];
+// Icon notifikasi mengikuti pola activityIcon di Dashboard.tsx (Aktivitas Terkini)
+function notifIcon(action: string) {
+  const a = action.toLowerCase();
+  if (a.includes("setuju") || a.includes("accept") || a.includes("approve"))
+    return "✅";
+  if (a.includes("tolak") || a.includes("reject")) return "❌";
+  if (a.includes("dokumen") || a.includes("upload")) return "📄";
+  if (a.includes("overdue")) return "⚠️";
+  if (a.includes("review")) return "✅";
+  return "🔔";
+}
 
 interface CurrentUser {
   name: string;
@@ -167,14 +132,16 @@ interface CurrentUser {
 }
 
 interface Props {
+  appState: AppState;
   currentUser: CurrentUser;
   currentPage: Page;
-  onNavigate: (page: Page) => void;
+  onNavigate: (page: Page, appId?: string) => void;
   onLogout: () => void;
   children: React.ReactNode;
 }
 
 export default function Layout({
+  appState,
   currentUser,
   currentPage,
   onNavigate,
@@ -184,7 +151,7 @@ export default function Layout({
   const [collapsed, setCollapsed] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
-  const [readIds, setReadIds] = useState<Set<number>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -202,9 +169,21 @@ export default function Layout({
     .substring(0, 2)
     .toUpperCase();
 
-  const unreadCount = notifPreview.filter(
-    (n) => n.unread && !readIds.has(n.id),
-  ).length;
+  // Notifikasi diambil dari data asli (history aplikasi), sama seperti
+  // "Aktivitas Terkini" di Dashboard.tsx — bukan lagi data dummy statis
+  const notifications = useMemo(() => {
+    return appState.applications
+      .flatMap((a) =>
+        a.history.map((h) => ({ ...h, appName: a.name, appId: a.id })),
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
+      .slice(0, 8);
+  }, [appState.applications]);
+
+  const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -217,7 +196,8 @@ export default function Layout({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const markAllRead = () => setReadIds(new Set(notifPreview.map((n) => n.id)));
+  const markAllRead = () =>
+    setReadIds(new Set(notifications.map((n) => n.id)));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -300,7 +280,7 @@ export default function Layout({
 
         <div className="flex-1" />
 
-        {/* Notification bell + dropdown */}
+        {/* Notification bell + dropdown — sumber & format sama dengan Aktivitas Terkini */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => {
@@ -318,10 +298,7 @@ export default function Layout({
           </button>
 
           {showNotif && (
-            <div
-              className="absolute right-0 top-full mt-2 w-88 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden"
-              style={{ width: 360 }}
-            >
+            <div className="absolute right-0 top-full mt-2 w-[360px] bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <span className="text-sm font-bold text-gray-900">
                   Notifikasi
@@ -339,30 +316,30 @@ export default function Layout({
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
-                {notifPreview.map((n) => {
-                  const isRead = readIds.has(n.id) || !n.unread;
+                {notifications.map((n) => {
+                  const isRead = readIds.has(n.id);
                   return (
                     <button
                       key={n.id}
                       onClick={() => {
                         setReadIds((s) => new Set([...s, n.id]));
                         setShowNotif(false);
+                        onNavigate("app-detail", n.appId);
                       }}
                       className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${!isRead ? "bg-indigo-50/40" : ""}`}
                     >
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.color}`}
-                      >
-                        <n.icon size={14} />
-                      </div>
+                      <span className="text-base leading-none mt-0.5 shrink-0">
+                        {notifIcon(n.action)}
+                      </span>
                       <div className="flex-1 min-w-0">
                         <p
                           className={`text-xs leading-snug ${!isRead ? "text-gray-900 font-semibold" : "text-gray-600"}`}
                         >
-                          {n.title}
+                          <span className="font-medium">{n.appName}</span>: {n.action}
+                          {n.user ? ` — ${n.user}` : ""}
                         </p>
                         <p className="text-[10px] text-gray-400 mt-0.5">
-                          {n.time}
+                          {n.timestamp}
                         </p>
                       </div>
                       {!isRead && (
@@ -371,14 +348,22 @@ export default function Layout({
                     </button>
                   );
                 })}
+                {notifications.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-8">
+                    Belum ada aktivitas
+                  </p>
+                )}
               </div>
 
               <div className="border-t border-gray-100 p-2">
                 <button
-                  onClick={() => setShowNotif(false)}
+                  onClick={() => {
+                    setShowNotif(false);
+                    onNavigate("dashboard");
+                  }}
                   className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600 font-medium hover:bg-indigo-50 rounded-xl transition-colors"
                 >
-                  Lihat semua notifikasi <ExternalLink size={11} />
+                  Lihat semua aktivitas <ExternalLink size={11} />
                 </button>
               </div>
             </div>

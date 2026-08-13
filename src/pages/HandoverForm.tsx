@@ -1,7 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Loader2,
+  FileCheck2,
+  X,
+  CheckCircle2,
+  ClipboardCheck,
+  Info,
+} from 'lucide-react'
 import type { AppState, Application, Criticality, Role } from '../types'
 import type { Page } from '../App'
 import { INITIAL_CHECKLIST_ITEMS } from '../data'
+import Card from '../components/ui/Card'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
 
 interface Props {
   appState: AppState
@@ -10,20 +24,34 @@ interface Props {
   onAddApp: (app: Application) => void
 }
 
+type UploadStatus = 'uploading' | 'done'
+interface UploadState {
+  file: File
+  status: UploadStatus
+}
+
 const STEP_LABELS = ['Data Aplikasi', 'Upload Dokumen', 'Checklist', 'Ringkasan']
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const ACCEPTED_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.zip,.png,.jpg,.jpeg'
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
 
 const Field = ({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) => (
-  <div style={{ marginBottom: 16 }}>
-    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 5 }}>{label}</label>
+  <div className="mb-4">
+    <label className="block text-xs font-medium text-gray-700 mb-1.5">{label}</label>
     {children}
-    {error && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 3 }}>{error}</p>}
+    {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
   </div>
 )
 
-const inputStyle = (err?: string): React.CSSProperties => ({
-  width: '100%', padding: '9px 12px', borderRadius: 7, boxSizing: 'border-box',
-  border: `1px solid ${err ? '#dc2626' : '#d1d5db'}`, fontSize: 13, color: '#111827', outline: 'none',
-})
+const inputCls = (err?: string) =>
+  `w-full px-3 py-2 rounded-lg border text-sm text-gray-900 bg-white outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-colors ${
+    err ? 'border-red-400' : 'border-gray-300'
+  }`
 
 export default function HandoverForm({ appState, currentUser, onNavigate, onAddApp }: Props) {
   const [step, setStep] = useState(0)
@@ -44,20 +72,29 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     vendor: '',
   })
 
-  const docTypes = [
-    { id: 'd-new-1', name: 'Business Requirements Document (BRD)', required: true },
-    { id: 'd-new-2', name: 'System Requirements Specification (SRS)', required: true },
-    { id: 'd-new-3', name: 'User Manual / Panduan Pengguna', required: true },
-    { id: 'd-new-4', name: 'Architecture & Technical Design', required: true },
-    { id: 'd-new-5', name: 'SLA Agreement', required: form.criticality !== 'Low' },
-    { id: 'd-new-6', name: 'Security Assessment Report', required: form.criticality === 'Critical' || form.criticality === 'High' },
-    { id: 'd-new-7', name: 'DRP / Backup Recovery Plan', required: form.criticality === 'Critical' || form.criticality === 'High' },
-    { id: 'd-new-8', name: 'UAT Sign-off Document', required: false },
-  ]
+  // Daftar dokumen wajib disesuaikan otomatis berdasarkan kritikalitas — dimemoize
+  // supaya tidak dihitung ulang tiap render, hanya saat kritikalitas berubah.
+  const docTypes = useMemo(
+    () => [
+      { id: 'd-new-1', name: 'Business Requirements Document (BRD)', required: true },
+      { id: 'd-new-2', name: 'System Requirements Specification (SRS)', required: true },
+      { id: 'd-new-3', name: 'User Manual / Panduan Pengguna', required: true },
+      { id: 'd-new-4', name: 'Architecture & Technical Design', required: true },
+      { id: 'd-new-5', name: 'SLA Agreement', required: form.criticality !== 'Low' },
+      { id: 'd-new-6', name: 'Security Assessment Report', required: form.criticality === 'Critical' || form.criticality === 'High' },
+      { id: 'd-new-7', name: 'DRP / Backup Recovery Plan', required: form.criticality === 'Critical' || form.criticality === 'High' },
+      { id: 'd-new-8', name: 'UAT Sign-off Document', required: false },
+    ],
+    [form.criticality],
+  )
 
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({})
+  const [uploads, setUploads] = useState<Record<string, UploadState>>({})
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
 
-  const checklistItems = INITIAL_CHECKLIST_ITEMS.filter(ci => ci.criticality.includes(form.criticality))
+  const checklistItems = useMemo(
+    () => INITIAL_CHECKLIST_ITEMS.filter(ci => ci.criticality.includes(form.criticality)),
+    [form.criticality],
+  )
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
 
   const f = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
@@ -80,7 +117,50 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     setStep(s => s + 1)
   }
 
-  const requiredDocsUploaded = docTypes.filter(d => d.required).every(d => uploadedDocs[d.id])
+  // Simulasi upload dokumen sungguhan: pilih file -> status "uploading" (spinner) -> "done"
+  function handleFileSelect(docId: string, files: FileList | null) {
+    const file = files?.[0]
+    if (!file) return
+
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadErrors(prev => ({ ...prev, [docId]: 'Ukuran file maksimal 10MB' }))
+      return
+    }
+    setUploadErrors(prev => {
+      const next = { ...prev }
+      delete next[docId]
+      return next
+    })
+
+    setUploads(prev => ({ ...prev, [docId]: { file, status: 'uploading' } }))
+
+    const delay = 500 + Math.random() * 700
+    window.setTimeout(() => {
+      setUploads(prev => (prev[docId]?.file === file ? { ...prev, [docId]: { file, status: 'done' } } : prev))
+    }, delay)
+  }
+
+  function removeUpload(docId: string) {
+    setUploads(prev => {
+      const next = { ...prev }
+      delete next[docId]
+      return next
+    })
+  }
+
+  const requiredDocsUploaded = useMemo(
+    () => docTypes.filter(d => d.required).every(d => uploads[d.id]?.status === 'done'),
+    [docTypes, uploads],
+  )
+
+  function resetForm() {
+    setStep(0)
+    setSubmitted(false)
+    setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, goLiveDate: '', technology: '', environment: '', category: '', vendor: '' })
+    setUploads({})
+    setUploadErrors({})
+    setCheckedItems({})
+  }
 
   function handleSubmit() {
     const id = `app-new-${Date.now()}`
@@ -108,7 +188,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
       ],
       actionItems: [],
       documents: docTypes
-        .filter(d => uploadedDocs[d.id])
+        .filter(d => uploads[d.id]?.status === 'done')
         .map(d => ({ id: d.id, name: d.name, type: 'Document', uploaded: true, required: d.required, uploadedAt: now })),
       history: [
         { id: `h-${Date.now()}`, timestamp: `${now} ${new Date().toTimeString().slice(0, 5)}`, user: currentUser.name, action: 'Pengajuan handover dibuat dan dikirim ke O&M' },
@@ -121,113 +201,108 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
 
   if (submitted) {
     return (
-      <div style={{ maxWidth: 560, margin: '60px auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 8px' }}>Pengajuan Berhasil!</h2>
-        <p style={{ color: '#6b7280', marginBottom: 24 }}>
-          Aplikasi <strong>"{form.name}"</strong> telah diajukan dan statusnya sekarang <strong>"Waiting for O&M Review"</strong>
+      <div className="max-w-lg mx-auto mt-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 size={32} className="text-emerald-600" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Pengajuan Berhasil!</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Aplikasi <strong className="text-gray-700">"{form.name}"</strong> telah diajukan dan statusnya sekarang{' '}
+          <strong className="text-gray-700">"Waiting for O&M Review"</strong>
         </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-          <button
-            onClick={() => onNavigate('app-detail', newAppId)}
-            style={{ padding: '10px 20px', borderRadius: 8, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-          >Lihat Detail Aplikasi</button>
-          <button
-            onClick={() => { setStep(0); setSubmitted(false); setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, goLiveDate: '', technology: '', environment: '', category: '', vendor: '' }); setUploadedDocs({}); setCheckedItems({}) }}
-            style={{ padding: '10px 20px', borderRadius: 8, background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-          >Ajukan Aplikasi Baru</button>
+        <div className="flex gap-3 justify-center">
+          <Button onClick={() => onNavigate('app-detail', newAppId)}>Lihat Detail Aplikasi</Button>
+          <Button variant="secondary" onClick={resetForm}>Ajukan Aplikasi Baru</Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', color: '#1a2332' }}>Ajukan Handover Aplikasi</h1>
-        <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>Isi formulir multi-step untuk mengajukan proses handover aplikasi ke O&M</p>
+    <div className="w-full">
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-gray-900">Ajukan Handover Aplikasi</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Isi formulir multi-step untuk mengajukan proses handover aplikasi ke O&M</p>
       </div>
 
       {/* Stepper */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
+      <div className="flex items-center mb-7">
         {STEP_LABELS.map((label, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < STEP_LABELS.length - 1 ? 1 : undefined }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 700, flexShrink: 0,
-                background: i < step ? '#16A34A' : i === step ? '#2563EB' : '#e5e7eb',
-                color: i <= step ? 'white' : '#6b7280',
-              }}>
+          <div key={i} className={`flex items-center ${i < STEP_LABELS.length - 1 ? 'flex-1' : ''}`}>
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                  i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'
+                }`}
+              >
                 {i < step ? '✓' : i + 1}
               </div>
-              <span style={{ fontSize: 12, fontWeight: i === step ? 600 : 400, color: i === step ? '#2563EB' : '#6b7280', whiteSpace: 'nowrap' }}>
+              <span className={`text-xs whitespace-nowrap ${i === step ? 'font-semibold text-indigo-600' : 'text-gray-500'}`}>
                 {label}
               </span>
             </div>
             {i < STEP_LABELS.length - 1 && (
-              <div style={{ flex: 1, height: 1, background: i < step ? '#16A34A' : '#e5e7eb', margin: '0 12px' }} />
+              <div className={`flex-1 h-px mx-3 ${i < step ? 'bg-emerald-500' : 'bg-gray-200'}`} />
             )}
           </div>
         ))}
       </div>
 
-      {/* Card */}
-      <div style={{ background: 'white', borderRadius: 12, padding: 28, border: '1px solid #e8edf3' }}>
-        {/* Step 0 */}
+      <Card className="!p-7">
+        {/* Step 0: Data Aplikasi */}
         {step === 0 && (
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 20px', color: '#1a2332' }}>Step 1: Data Aplikasi</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <div style={{ gridColumn: '1/-1' }}>
+            <h3 className="text-sm font-semibold text-gray-900 mb-5">Step 1: Data Aplikasi</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <div className="md:col-span-2">
                 <Field label="Nama Aplikasi *" error={errors.name}>
-                  <input value={form.name} onChange={e => f('name', e.target.value)} placeholder="Nama lengkap aplikasi" style={inputStyle(errors.name)} />
+                  <input value={form.name} onChange={e => f('name', e.target.value)} placeholder="Nama lengkap aplikasi" className={inputCls(errors.name)} />
                 </Field>
               </div>
-              <div style={{ gridColumn: '1/-1' }}>
+              <div className="md:col-span-2">
                 <Field label="Deskripsi *" error={errors.description}>
-                  <textarea value={form.description} onChange={e => f('description', e.target.value)} placeholder="Jelaskan fungsi dan tujuan aplikasi" rows={3} style={{ ...inputStyle(errors.description), resize: 'vertical' }} />
+                  <textarea value={form.description} onChange={e => f('description', e.target.value)} placeholder="Jelaskan fungsi dan tujuan aplikasi" rows={3} className={`${inputCls(errors.description)} resize-y`} />
                 </Field>
               </div>
               <Field label="Tingkat Kritikalitas *">
-                <select value={form.criticality} onChange={e => f('criticality', e.target.value as Criticality)} style={inputStyle()}>
+                <select value={form.criticality} onChange={e => f('criticality', e.target.value as Criticality)} className={inputCls()}>
                   {(['Critical', 'High', 'Medium', 'Low'] as Criticality[]).map(c => <option key={c}>{c}</option>)}
                 </select>
-                <p style={{ fontSize: 11, color: '#6b7280', marginTop: 3 }}>
+                <p className="text-xs text-gray-500 mt-1">
                   {form.criticality === 'Critical' ? '⚠️ Kritis: checklist & persyaratan paling ketat' :
                    form.criticality === 'High' ? '🔶 Tinggi: persyaratan security & DRP wajib' :
                    form.criticality === 'Medium' ? '🔷 Sedang: persyaratan standar' : '🔹 Rendah: persyaratan minimal'}
                 </p>
               </Field>
               <Field label="Kategori">
-                <select value={form.category} onChange={e => f('category', e.target.value)} style={inputStyle()}>
+                <select value={form.category} onChange={e => f('category', e.target.value)} className={inputCls()}>
                   <option value="">-- Pilih Kategori --</option>
                   {['Operations', 'Upstream', 'Integrity', 'HSE', 'Finance', 'Procurement', 'Analytics', 'Asset', 'HR', 'Document'].map(c => <option key={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="Business Owner *" error={errors.businessOwner}>
-                <input value={form.businessOwner} onChange={e => f('businessOwner', e.target.value)} placeholder="Nama business owner" style={inputStyle(errors.businessOwner)} />
+                <input value={form.businessOwner} onChange={e => f('businessOwner', e.target.value)} placeholder="Nama business owner" className={inputCls(errors.businessOwner)} />
               </Field>
               <Field label="PIC / Person in Charge *" error={errors.pic}>
-                <select value={form.pic} onChange={e => f('pic', e.target.value)} style={inputStyle(errors.pic)}>
+                <select value={form.pic} onChange={e => f('pic', e.target.value)} className={inputCls(errors.pic)}>
                   <option value={currentUser.name}>{currentUser.name} (saya)</option>
                   {appState.picList.map(p => p.name !== currentUser.name ? <option key={p.id} value={p.name}>{p.name} — {p.department}</option> : null)}
                 </select>
               </Field>
               <Field label="Target Go-Live *" error={errors.goLiveDate}>
-                <input type="date" value={form.goLiveDate} onChange={e => f('goLiveDate', e.target.value)} style={inputStyle(errors.goLiveDate)} />
+                <input type="date" value={form.goLiveDate} onChange={e => f('goLiveDate', e.target.value)} className={inputCls(errors.goLiveDate)} />
               </Field>
               <Field label="Vendor / Developer">
-                <select value={form.vendor} onChange={e => f('vendor', e.target.value)} style={inputStyle()}>
+                <select value={form.vendor} onChange={e => f('vendor', e.target.value)} className={inputCls()}>
                   <option value="">-- Pilih Vendor --</option>
                   {appState.vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                 </select>
               </Field>
               <Field label="Stack Teknologi *" error={errors.technology}>
-                <input value={form.technology} onChange={e => f('technology', e.target.value)} placeholder="Contoh: React, Node.js, PostgreSQL" style={inputStyle(errors.technology)} />
+                <input value={form.technology} onChange={e => f('technology', e.target.value)} placeholder="Contoh: React, Node.js, PostgreSQL" className={inputCls(errors.technology)} />
               </Field>
               <Field label="Environment *" error={errors.environment}>
-                <select value={form.environment} onChange={e => f('environment', e.target.value)} style={inputStyle(errors.environment)}>
+                <select value={form.environment} onChange={e => f('environment', e.target.value)} className={inputCls(errors.environment)}>
                   <option value="">-- Pilih Environment --</option>
                   {appState.environments.map(env => <option key={env.id} value={env.name}>{env.name}</option>)}
                 </select>
@@ -236,86 +311,139 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
           </div>
         )}
 
-        {/* Step 1 */}
+        {/* Step 1: Upload Dokumen — simulasi upload file sungguhan */}
         {step === 1 && (
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 20px', color: '#1a2332' }}>Step 2: Upload Dokumen</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {docTypes.map(doc => (
-                <div key={doc.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                  border: `1px solid ${uploadedDocs[doc.id] ? '#bbf7d0' : '#e5e7eb'}`,
-                  borderRadius: 8, background: uploadedDocs[doc.id] ? '#f0fdf4' : 'white',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                }}
-                onClick={() => setUploadedDocs(prev => ({ ...prev, [doc.id]: !prev[doc.id] }))}
-                >
-                  <div style={{
-                    width: 20, height: 20, borderRadius: 4, border: `2px solid ${uploadedDocs[doc.id] ? '#16A34A' : '#d1d5db'}`,
-                    background: uploadedDocs[doc.id] ? '#16A34A' : 'white',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, fontSize: 11, color: 'white', fontWeight: 700,
-                  }}>
-                    {uploadedDocs[doc.id] ? '✓' : ''}
+            <h3 className="text-sm font-semibold text-gray-900 mb-5">Step 2: Upload Dokumen</h3>
+            <div className="flex flex-col gap-2.5">
+              {docTypes.map(doc => {
+                const upload = uploads[doc.id]
+                const status = upload?.status
+                const inputId = `upload-${doc.id}`
+                return (
+                  <div
+                    key={doc.id}
+                    className={`rounded-lg border transition-colors ${
+                      status === 'done' ? 'border-emerald-200 bg-emerald-50/50' :
+                      status === 'uploading' ? 'border-indigo-200 bg-indigo-50/40' :
+                      uploadErrors[doc.id] ? 'border-red-300 bg-red-50/40' :
+                      'border-gray-200 bg-white'
+                    }`}
+                  >
+                    {!status && (
+                      <label htmlFor={inputId} className="flex items-center gap-3 px-4 py-3 cursor-pointer rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <Upload size={16} className="text-gray-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-gray-900 flex items-center gap-1.5 flex-wrap">
+                            {doc.name}
+                            {doc.required && <Badge variant="rejected">WAJIB</Badge>}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {uploadErrors[doc.id] || 'Klik untuk pilih file (PDF, DOC, XLS, ZIP — maks 10MB)'}
+                          </div>
+                        </div>
+                      </label>
+                    )}
+
+                    {status === 'uploading' && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                          <Loader2 size={16} className="text-indigo-600 animate-spin" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-gray-900 truncate">{upload!.file.name}</div>
+                          <div className="text-xs text-indigo-500 mt-0.5">Mengupload...</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {status === 'done' && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                          <FileCheck2 size={16} className="text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-gray-900 flex items-center gap-1.5 flex-wrap">
+                            {doc.name}
+                            {doc.required && <Badge variant="rejected">WAJIB</Badge>}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5 truncate">
+                            {upload!.file.name} • {formatFileSize(upload!.file.size)}
+                          </div>
+                        </div>
+                        <label htmlFor={inputId} className="text-xs text-indigo-600 hover:underline cursor-pointer flex-shrink-0">
+                          Ganti
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeUpload(doc.id)}
+                          className="text-gray-400 hover:text-red-500 flex-shrink-0 p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+
+                    <input
+                      id={inputId}
+                      type="file"
+                      className="hidden"
+                      accept={ACCEPTED_TYPES}
+                      onChange={e => { handleFileSelect(doc.id, e.target.files); e.target.value = '' }}
+                    />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 13, color: '#1a2332' }}>{doc.name}</span>
-                    {doc.required && <span style={{ marginLeft: 6, fontSize: 10, color: '#dc2626', fontWeight: 600 }}>WAJIB</span>}
-                  </div>
-                  <div style={{
-                    padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                    background: uploadedDocs[doc.id] ? '#dcfce7' : doc.required ? '#fef2f2' : '#f9fafb',
-                    color: uploadedDocs[doc.id] ? '#16A34A' : doc.required ? '#dc2626' : '#6b7280',
-                  }}>
-                    {uploadedDocs[doc.id] ? '✓ Terupload' : doc.required ? 'Wajib Upload' : 'Opsional'}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
             {!requiredDocsUploaded && (
-              <p style={{ fontSize: 12, color: '#d97706', marginTop: 12, padding: '8px 12px', background: '#fefce8', borderRadius: 6 }}>
-                ⚠ Klik pada dokumen wajib (WAJIB) untuk menandai sudah terupload. Tombol Lanjut aktif setelah semua dokumen wajib ditandai.
+              <p className="flex items-start gap-2 text-xs text-amber-700 mt-3 px-3 py-2 bg-amber-50 rounded-lg">
+                <Info size={13} className="flex-shrink-0 mt-0.5" />
+                Upload semua dokumen bertanda WAJIB untuk melanjutkan ke step berikutnya.
               </p>
             )}
           </div>
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: Checklist */}
         {step === 2 && (
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 4px', color: '#1a2332' }}>Step 3: Checklist Readiness</h3>
-            <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 16px' }}>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Step 3: Checklist Readiness</h3>
+            <p className="text-xs text-gray-500 mb-4">
               Checklist di bawah disesuaikan dengan kritikalitas <strong>{form.criticality}</strong> ({checklistItems.length} item)
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {checklistItems.map(item => (
-                <label key={item.id} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px',
-                  border: '1px solid #e5e7eb', borderRadius: 7, cursor: 'pointer',
-                  background: checkedItems[item.id] ? '#f0fdf4' : 'white',
-                }}>
+                <label
+                  key={item.id}
+                  className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    checkedItems[item.id] ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
+                >
                   <input
                     type="checkbox"
                     checked={checkedItems[item.id] || false}
                     onChange={e => setCheckedItems(prev => ({ ...prev, [item.id]: e.target.checked }))}
-                    style={{ marginTop: 2, flexShrink: 0 }}
+                    className="mt-0.5 flex-shrink-0 accent-indigo-600"
                   />
-                  <span style={{ fontSize: 13, color: '#1a2332', flex: 1 }}>{item.text}</span>
-                  {item.required && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, flexShrink: 0 }}>WAJIB</span>}
+                  <span className="text-sm text-gray-900 flex-1">{item.text}</span>
+                  {item.required && <Badge variant="rejected">WAJIB</Badge>}
                 </label>
               ))}
             </div>
-            <div style={{ marginTop: 14, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, fontSize: 12, color: '#374151' }}>
-              ✓ {Object.values(checkedItems).filter(Boolean).length} dari {checklistItems.length} item telah dicentang
+            <div className="mt-3.5 px-3.5 py-2.5 bg-gray-50 rounded-lg text-xs text-gray-700 flex items-center gap-1.5">
+              <ClipboardCheck size={13} className="text-gray-400" />
+              {Object.values(checkedItems).filter(Boolean).length} dari {checklistItems.length} item telah dicentang
             </div>
           </div>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3: Ringkasan */}
         {step === 3 && (
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 16px', color: '#1a2332' }}>Step 4: Ringkasan Pengajuan</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', background: '#f8fafc', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Step 4: Ringkasan Pengajuan</h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 bg-gray-50 rounded-lg p-4 mb-5">
               {[
                 ['Nama Aplikasi', form.name],
                 ['Kritikalitas', form.criticality],
@@ -327,57 +455,44 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                 ['Vendor', form.vendor || 'Internal IT'],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{label}</div>
-                  <div style={{ fontSize: 13, color: '#1a2332', fontWeight: 500 }}>{value}</div>
+                  <div className="text-xs text-gray-500 font-medium">{label}</div>
+                  <div className="text-sm text-gray-900 font-medium">{value}</div>
                 </div>
               ))}
-              <div style={{ gridColumn: '1/-1' }}>
-                <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Deskripsi</div>
-                <div style={{ fontSize: 13, color: '#1a2332' }}>{form.description}</div>
+              <div className="col-span-2">
+                <div className="text-xs text-gray-500 font-medium">Deskripsi</div>
+                <div className="text-sm text-gray-900">{form.description}</div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-xs text-gray-500 font-medium">Dokumen Terupload</div>
+                <div className="text-sm text-gray-900">
+                  {docTypes.filter(d => uploads[d.id]?.status === 'done').length} dari {docTypes.length} dokumen
+                </div>
               </div>
             </div>
-            <div style={{ padding: 14, background: '#eff6ff', borderRadius: 8, fontSize: 13, color: '#1e40af' }}>
-              ℹ Dengan mengklik <strong>Submit Pengajuan</strong>, status aplikasi akan berubah menjadi <strong>"Waiting for O&M Review"</strong> dan notifikasi akan dikirim ke tim O&M.
-            </div>
+            <p className="flex items-start gap-2 px-3.5 py-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+              <Info size={15} className="flex-shrink-0 mt-0.5" />
+              Dengan mengklik <strong>Submit Pengajuan</strong>, status aplikasi akan berubah menjadi <strong>"Waiting for O&M Review"</strong> dan notifikasi akan dikirim ke tim O&M.
+            </p>
           </div>
         )}
 
         {/* Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, paddingTop: 20, borderTop: '1px solid #f3f4f6' }}>
-          <button
-            onClick={() => setStep(s => s - 1)}
-            disabled={step === 0}
-            style={{
-              padding: '9px 18px', borderRadius: 7, border: '1px solid #e5e7eb',
-              background: 'white', color: '#374151', cursor: step === 0 ? 'not-allowed' : 'pointer',
-              fontSize: 13, fontWeight: 500, opacity: step === 0 ? 0.4 : 1,
-            }}
-          >
-            ← Kembali
-          </button>
+        <div className="flex justify-between mt-6 pt-5 border-t border-gray-100">
+          <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0}>
+            <ChevronLeft size={14} /> Kembali
+          </Button>
           {step < 3 ? (
-            <button
-              onClick={nextStep}
-              disabled={step === 1 && !requiredDocsUploaded}
-              style={{
-                padding: '9px 20px', borderRadius: 7, border: 'none',
-                background: (step === 1 && !requiredDocsUploaded) ? '#9ca3af' : '#2563EB',
-                color: 'white', cursor: (step === 1 && !requiredDocsUploaded) ? 'not-allowed' : 'pointer',
-                fontSize: 13, fontWeight: 600,
-              }}
-            >
-              Lanjut →
-            </button>
+            <Button onClick={nextStep} disabled={step === 1 && !requiredDocsUploaded}>
+              Lanjut <ChevronRight size={14} />
+            </Button>
           ) : (
-            <button
-              onClick={handleSubmit}
-              style={{ padding: '9px 20px', borderRadius: 7, border: 'none', background: '#16A34A', color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-            >
-              ✓ Submit Pengajuan
-            </button>
+            <Button variant="success" onClick={handleSubmit}>
+              <CheckCircle2 size={14} /> Submit Pengajuan
+            </Button>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

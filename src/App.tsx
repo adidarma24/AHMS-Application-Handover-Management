@@ -169,6 +169,7 @@ export default function App() {
   return (
     <div style={{ height: "100vh", background: "#f0f4f8" }}>
       <Layout
+        appState={appState}
         currentUser={currentUser}
         currentPage={currentPage}
         onNavigate={navigate}

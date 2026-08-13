@@ -1,7 +1,14 @@
 import { useState } from 'react'
-import type { AppState, Application, Role } from '../types'
+import {
+  ArrowLeft, CheckCircle2, XCircle, Clock, FileText, Bot,
+  ChevronDown, ChevronUp, Mail, Plus,
+} from 'lucide-react'
+import Card from '../components/ui/Card'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
+import type { AppState, Application, AppStatus, Criticality, Role } from '../types'
 import type { Page } from '../App'
-import { getStatusBadgeClass } from '../data'
 
 interface Props {
   app: Application
@@ -13,11 +20,30 @@ interface Props {
 
 type Tab = 'overview' | 'documents' | 'action-items' | 'history'
 
+// Konsisten dengan skema warna Badge.tsx (dipakai juga di Reports.tsx)
+const statusVariant: Record<AppStatus, any> = {
+  'Draft': 'draft',
+  'Waiting for O&M Review': 'waiting',
+  'Under Technical Review': 'inprogress',
+  'Rejected': 'rejected',
+  'Approved': 'approved',
+  'Handover Accepted': 'accepted',
+}
+
+const critVariant: Record<Criticality, any> = {
+  Critical: 'critical', High: 'high', Medium: 'medium', Low: 'low',
+}
+
+const priorityVariant = (p: string) => (p === 'high' ? 'high' : p === 'medium' ? 'medium' : 'low')
+const aiStatusVariant = (s: string) => (s === 'overdue' ? 'overdue' : s === 'completed' ? 'done' : 'open')
+const aiStatusLabel = (s: string) => (s === 'overdue' ? 'OVERDUE' : s === 'completed' ? 'DONE' : 'OPEN')
+
 export default function ApplicationDetail({ app, currentUser, onNavigate, onUpdateApp }: Props) {
   const [tab, setTab] = useState<Tab>('overview')
   const [showEscModal, setShowEscModal] = useState(false)
   const [aiExpanded, setAiExpanded] = useState(true)
   const [newActionTitle, setNewActionTitle] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const overdueCount = app.actionItems.filter(a => a.status === 'overdue').length
   const daysSinceSubmit = Math.floor((Date.now() - new Date(app.submittedDate).getTime()) / (1000 * 60 * 60 * 24))
@@ -25,11 +51,7 @@ export default function ApplicationDetail({ app, currentUser, onNavigate, onUpda
 
   const riskLevel = app.riskScore >= 70 ? 'Tinggi' : app.riskScore >= 40 ? 'Sedang' : 'Rendah'
   const riskColor = app.riskScore >= 70 ? '#dc2626' : app.riskScore >= 40 ? '#d97706' : '#16A34A'
-  const riskBg = app.riskScore >= 70 ? '#fef2f2' : app.riskScore >= 40 ? '#fefce8' : '#f0fdf4'
-
-  const critColor: Record<string, string> = {
-    Critical: '#dc2626', High: '#d97706', Medium: '#2563EB', Low: '#6b7280',
-  }
+  const riskBg = app.riskScore >= 70 ? 'bg-red-50' : app.riskScore >= 40 ? 'bg-amber-50' : 'bg-emerald-50'
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -38,25 +60,46 @@ export default function ApplicationDetail({ app, currentUser, onNavigate, onUpda
     { id: 'history', label: 'Riwayat / Audit Trail' },
   ]
 
+  function nowTimestamp() {
+    return `${new Date().toISOString().slice(0, 10)} ${new Date().toTimeString().slice(0, 5)}`
+  }
+
+  // Menambah action item sekarang juga mencatat ke history, supaya konsisten
+  // dengan tab "Riwayat / Audit Trail" dan notifikasi di Layout.tsx (yang
+  // sumbernya langsung dari app.history).
   function addActionItem() {
     if (!newActionTitle.trim()) return
-    const updated = [...app.actionItems, {
+    const title = newActionTitle.trim()
+    const newItem = {
       id: `ai-${Date.now()}`,
-      title: newActionTitle,
+      title,
       assignee: app.pic,
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       status: 'open' as const,
       priority: 'medium' as const,
-    }]
-    onUpdateApp(app.id, { actionItems: updated })
+    }
+    const historyEntry = {
+      id: `h-${Date.now()}`,
+      timestamp: nowTimestamp(),
+      user: currentUser.name,
+      action: `Action item ditambahkan: "${title}"`,
+    }
+    onUpdateApp(app.id, { actionItems: [...app.actionItems, newItem], history: [...app.history, historyEntry] })
     setNewActionTitle('')
   }
 
-  function toggleActionStatus(aiId: string) {
-    const updated = app.actionItems.map(ai =>
-      ai.id === aiId ? { ...ai, status: ai.status === 'completed' ? 'open' as const : 'completed' as const } : ai
+  function toggleActionStatus(ai: Application['actionItems'][number]) {
+    const completing = ai.status !== 'completed'
+    const updatedItems = app.actionItems.map(x =>
+      x.id === ai.id ? { ...x, status: completing ? 'completed' as const : 'open' as const } : x
     )
-    onUpdateApp(app.id, { actionItems: updated })
+    const historyEntry = {
+      id: `h-${Date.now()}`,
+      timestamp: nowTimestamp(),
+      user: currentUser.name,
+      action: completing ? `Action item diselesaikan: "${ai.title}"` : `Action item dibuka kembali: "${ai.title}"`,
+    }
+    onUpdateApp(app.id, { actionItems: updatedItems, history: [...app.history, historyEntry] })
   }
 
   const aiInsightReasons: string[] = []
@@ -66,254 +109,7 @@ export default function ApplicationDetail({ app, currentUser, onNavigate, onUpda
   if (app.criticality === 'Critical') aiInsightReasons.push(`kritikalitas Critical`)
   if (!app.documents.every(d => d.uploaded)) aiInsightReasons.push(`dokumen wajib belum lengkap`)
 
-  return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      {/* Back */}
-      <button
-        onClick={() => onNavigate('my-applications')}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', fontSize: 13, marginBottom: 16, padding: 0 }}
-      >
-        ← Kembali ke daftar aplikasi
-      </button>
-
-      {/* Header */}
-      <div style={{ background: 'white', borderRadius: 12, padding: 24, border: '1px solid #e8edf3', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px', color: '#1a2332' }}>{app.name}</h1>
-            <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{app.description}</p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-            <span className={`badge ${getStatusBadgeClass(app.status)}`} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-              {app.status}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: critColor[app.criticality], padding: '4px 10px', background: `${critColor[app.criticality]}15`, borderRadius: 20 }}>
-              {app.criticality}
-            </span>
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          {[
-            ['PIC', app.pic],
-            ['Business Owner', app.businessOwner],
-            ['Target Go-Live', app.goLiveDate],
-            ['Diajukan', app.submittedDate],
-            ['Teknologi', app.technology],
-            ['Environment', app.environment],
-            ['Vendor', app.vendor],
-            ['Kategori', app.category],
-          ].map(([label, value]) => (
-            <div key={label as string} style={{ padding: '8px 10px', background: '#f8fafc', borderRadius: 6 }}>
-              <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label as string}</div>
-              <div style={{ fontSize: 12, color: '#1a2332', fontWeight: 500, marginTop: 2 }}>{value as string}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
-        {/* Main content */}
-        <div>
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 0, marginBottom: 0, background: 'white', borderRadius: '10px 10px 0 0', border: '1px solid #e8edf3', borderBottom: 'none', overflow: 'hidden' }}>
-            {TABS.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                style={{
-                  padding: '12px 18px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t.id ? 600 : 400,
-                  borderBottom: `2px solid ${tab === t.id ? '#2563EB' : 'transparent'}`,
-                  color: tab === t.id ? '#2563EB' : '#6b7280', background: tab === t.id ? '#eff6ff' : 'white',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ background: 'white', border: '1px solid #e8edf3', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: 20 }}>
-            {/* Overview */}
-            {tab === 'overview' && (
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 14px', color: '#1a2332' }}>Status Reviewer</h3>
-                {app.reviewers.length === 0 ? (
-                  <p style={{ fontSize: 13, color: '#9ca3af' }}>Belum ada reviewer (status Draft)</p>
-                ) : app.reviewers.map(r => (
-                  <div key={r.role} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 18 }}>
-                      {r.status === 'approved' || r.status === 'approved_with_condition' ? '✅' : r.status === 'rejected' ? '❌' : '⏳'}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#1a2332' }}>{r.name}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{r.role}</div>
-                      {r.notes && <div style={{ fontSize: 11, color: '#d97706', marginTop: 2, fontStyle: 'italic' }}>{r.notes}</div>}
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: r.status === 'approved' || r.status === 'approved_with_condition' ? '#16A34A' : r.status === 'rejected' ? '#dc2626' : '#d97706' }}>
-                        {r.status === 'approved' ? 'Approved' : r.status === 'approved_with_condition' ? 'Approved w/ Condition' : r.status === 'rejected' ? 'Rejected' : 'Pending'}
-                      </span>
-                      {r.reviewedAt && <div style={{ fontSize: 10, color: '#9ca3af' }}>{r.reviewedAt}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Documents */}
-            {tab === 'documents' && (
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 14px', color: '#1a2332' }}>Dokumen Handover</h3>
-                {app.documents.length === 0 ? (
-                  <p style={{ fontSize: 13, color: '#9ca3af' }}>Belum ada dokumen</p>
-                ) : app.documents.map(doc => (
-                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: '1px solid #e8edf3', borderRadius: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 22 }}>📄</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#1a2332' }}>{doc.name}</div>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{doc.type} {doc.uploadedAt && `• Uploaded ${doc.uploadedAt}`}</div>
-                    </div>
-                    {doc.required && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, background: '#fef2f2', padding: '2px 6px', borderRadius: 4 }}>WAJIB</span>}
-                    <span style={{ fontSize: 12, fontWeight: 600, color: doc.uploaded ? '#16A34A' : '#dc2626' }}>
-                      {doc.uploaded ? '✓ Ada' : '✗ Belum'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Action Items */}
-            {tab === 'action-items' && (
-              <div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                  <input
-                    value={newActionTitle}
-                    onChange={e => setNewActionTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addActionItem()}
-                    placeholder="Tambah action item baru..."
-                    style={{ flex: 1, padding: '8px 12px', borderRadius: 7, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}
-                  />
-                  <button onClick={addActionItem} style={{ padding: '8px 14px', borderRadius: 7, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>+ Tambah</button>
-                </div>
-                {app.actionItems.length === 0 ? (
-                  <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 20 }}>Belum ada action item</p>
-                ) : app.actionItems.map(ai => (
-                  <div key={ai.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-                    border: `1px solid ${ai.status === 'overdue' ? '#fecaca' : '#e8edf3'}`,
-                    background: ai.status === 'overdue' ? '#fef2f2' : ai.status === 'completed' ? '#f0fdf4' : 'white',
-                    borderRadius: 8, marginBottom: 8,
-                  }}>
-                    <input type="checkbox" checked={ai.status === 'completed'} onChange={() => toggleActionStatus(ai.id)} style={{ flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: '#1a2332', textDecoration: ai.status === 'completed' ? 'line-through' : 'none', opacity: ai.status === 'completed' ? 0.6 : 1 }}>{ai.title}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{ai.assignee} • Due: {ai.dueDate}</div>
-                    </div>
-                    <span style={{
-                      fontSize: 10, padding: '2px 7px', borderRadius: 10, fontWeight: 600,
-                      background: ai.status === 'overdue' ? '#fef2f2' : ai.status === 'completed' ? '#f0fdf4' : '#f3f4f6',
-                      color: ai.status === 'overdue' ? '#dc2626' : ai.status === 'completed' ? '#16A34A' : '#6b7280',
-                    }}>
-                      {ai.status === 'overdue' ? 'OVERDUE' : ai.status === 'completed' ? 'DONE' : 'OPEN'}
-                    </span>
-                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 10, fontWeight: 600, background: ai.priority === 'high' ? '#fef2f2' : '#fefce8', color: ai.priority === 'high' ? '#dc2626' : '#d97706' }}>
-                      {ai.priority.toUpperCase()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* History */}
-            {tab === 'history' && (
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 14px', color: '#1a2332' }}>Audit Trail</h3>
-                <div style={{ position: 'relative', paddingLeft: 24 }}>
-                  <div style={{ position: 'absolute', left: 7, top: 0, bottom: 0, width: 2, background: '#e8edf3' }} />
-                  {[...app.history].reverse().map((h, i) => (
-                    <div key={h.id} style={{ position: 'relative', marginBottom: 16 }}>
-                      <div style={{ position: 'absolute', left: -20, width: 10, height: 10, borderRadius: '50%', background: '#2563EB', border: '2px solid white', top: 3 }} />
-                      <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 2 }}>{h.timestamp}</div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#1a2332' }}>{h.action}</div>
-                      <div style={{ fontSize: 12, color: '#6b7280' }}>oleh {h.user}</div>
-                      {h.notes && <div style={{ fontSize: 12, color: '#d97706', marginTop: 3, fontStyle: 'italic' }}>"{h.notes}"</div>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right sidebar: AI Risk */}
-        <div>
-          <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e8edf3', overflow: 'hidden', marginBottom: 12 }}>
-            <div
-              style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: riskBg }}
-              onClick={() => setAiExpanded(e => !e)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>🤖</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#1a2332' }}>AI Risk Insight</span>
-              </div>
-              <span style={{ fontSize: 11 }}>{aiExpanded ? '▲' : '▼'}</span>
-            </div>
-            {aiExpanded && (
-              <div style={{ padding: 16 }}>
-                <div style={{ textAlign: 'center', marginBottom: 14 }}>
-                  <div style={{
-                    width: 72, height: 72, borderRadius: '50%', margin: '0 auto 8px',
-                    background: `conic-gradient(${riskColor} ${app.riskScore * 3.6}deg, #e8edf3 0deg)`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-                  }}>
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: riskColor }}>{app.riskScore}</span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: riskColor }}>Risiko {riskLevel}</div>
-                </div>
-                {aiInsightReasons.length > 0 ? (
-                  <div>
-                    <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Faktor Risiko</div>
-                    {aiInsightReasons.map((r, i) => (
-                      <div key={i} style={{ fontSize: 12, color: '#374151', padding: '4px 0', display: 'flex', gap: 6 }}>
-                        <span style={{ color: riskColor, flexShrink: 0 }}>•</span>
-                        <span>{r}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: 12, color: '#16A34A', textAlign: 'center' }}>Tidak ada faktor risiko teridentifikasi</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Escalation */}
-          {app.riskScore >= 50 && (
-            <button
-              onClick={() => setShowEscModal(true)}
-              style={{
-                width: '100%', padding: '10px', borderRadius: 8, background: '#fef2f2',
-                border: '1px solid #fecaca', color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              }}
-            >
-              ✉ Generate Draft Eskalasi
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Escalation Modal */}
-      {showEscModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}>
-          <div style={{ background: 'white', borderRadius: 12, padding: 28, maxWidth: 560, width: '100%', margin: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Draft Email Eskalasi</h3>
-              <button onClick={() => setShowEscModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#6b7280' }}>✕</button>
-            </div>
-            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 16, fontSize: 13, color: '#374151', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-{`Kepada: Manager Divisi IT & O&M
+  const escalationDraft = `Kepada: Manager Divisi IT & O&M
 Cc: ${app.businessOwner}, ${app.pic}
 Subjek: [ESKALASI] Hambatan Proses Handover — ${app.name}
 
@@ -335,20 +131,266 @@ Kami memohon intervensi dan keputusan dalam waktu 3 hari kerja untuk memastikan 
 Hormat kami,
 ${currentUser.name}
 ${currentUser.role}
-PT Energi Nusantara Persada`}
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowEscModal(false)} style={{ padding: '8px 16px', borderRadius: 7, border: '1px solid #e5e7eb', background: 'white', cursor: 'pointer', fontSize: 13 }}>Tutup</button>
-              <button
-                onClick={() => { navigator.clipboard?.writeText('Draft disalin!'); setShowEscModal(false) }}
-                style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: '#2563EB', color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-              >
-                Salin Draft
-              </button>
-            </div>
+PT Energi Nusantara Persada`
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-4">
+      {/* Back */}
+      <button
+        onClick={() => onNavigate('my-applications')}
+        className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline"
+      >
+        <ArrowLeft size={14} /> Kembali ke daftar aplikasi
+      </button>
+
+      {/* Header */}
+      <Card>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{app.name}</h1>
+            <p className="text-sm text-gray-500 mt-1">{app.description}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge variant={statusVariant[app.status]} size="md">{app.status}</Badge>
+            <Badge variant={critVariant[app.criticality]} size="md">{app.criticality}</Badge>
           </div>
         </div>
-      )}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            ['PIC', app.pic],
+            ['Business Owner', app.businessOwner],
+            ['Target Go-Live', app.goLiveDate],
+            ['Diajukan', app.submittedDate],
+            ['Teknologi', app.technology],
+            ['Environment', app.environment],
+            ['Vendor', app.vendor],
+            ['Kategori', app.category],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{label}</div>
+              <div className="text-xs font-medium text-gray-900 mt-0.5 truncate">{value}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
+        {/* Main content */}
+        <Card padding={false}>
+          {/* Tabs */}
+          <div className="flex border-b border-gray-100 overflow-x-auto">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-4 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  tab === t.id
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-5">
+            {/* Overview */}
+            {tab === 'overview' && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3.5">Status Reviewer</h3>
+                {app.reviewers.length === 0 ? (
+                  <p className="text-sm text-gray-400">Belum ada reviewer (status Draft)</p>
+                ) : app.reviewers.map(r => {
+                  const isApproved = r.status === 'approved' || r.status === 'approved_with_condition'
+                  const isRejected = r.status === 'rejected'
+                  const Icon = isApproved ? CheckCircle2 : isRejected ? XCircle : Clock
+                  const iconColor = isApproved ? 'text-emerald-500' : isRejected ? 'text-red-500' : 'text-amber-500'
+                  const statusColor = isApproved ? 'text-emerald-600' : isRejected ? 'text-red-600' : 'text-amber-600'
+                  return (
+                    <div key={r.role} className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 rounded-lg mb-2">
+                      <Icon size={18} className={`flex-shrink-0 ${iconColor}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{r.name}</div>
+                        <div className="text-xs text-gray-500">{r.role}</div>
+                        {r.notes && <div className="text-xs text-amber-600 italic mt-0.5">{r.notes}</div>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className={`text-xs font-semibold ${statusColor}`}>
+                          {r.status === 'approved' ? 'Approved' : r.status === 'approved_with_condition' ? 'Approved w/ Condition' : r.status === 'rejected' ? 'Rejected' : 'Pending'}
+                        </span>
+                        {r.reviewedAt && <div className="text-[10px] text-gray-400">{r.reviewedAt}</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Documents */}
+            {tab === 'documents' && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3.5">Dokumen Handover</h3>
+                {app.documents.length === 0 ? (
+                  <p className="text-sm text-gray-400">Belum ada dokumen</p>
+                ) : app.documents.map(doc => (
+                  <div key={doc.id} className="flex items-center gap-3 px-3.5 py-3 border border-gray-100 rounded-lg mb-2">
+                    <FileText size={20} className="text-gray-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{doc.name}</div>
+                      <div className="text-xs text-gray-400">{doc.type} {doc.uploadedAt && `• Uploaded ${doc.uploadedAt}`}</div>
+                    </div>
+                    {doc.required && <Badge variant="rejected">WAJIB</Badge>}
+                    <span className={`inline-flex items-center gap-1 text-xs font-semibold flex-shrink-0 ${doc.uploaded ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {doc.uploaded ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                      {doc.uploaded ? 'Ada' : 'Belum'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Action Items */}
+            {tab === 'action-items' && (
+              <div>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    value={newActionTitle}
+                    onChange={e => setNewActionTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addActionItem()}
+                    placeholder="Tambah action item baru..."
+                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                  />
+                  <Button size="sm" onClick={addActionItem}>
+                    <Plus size={14} /> Tambah
+                  </Button>
+                </div>
+                {app.actionItems.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-6">Belum ada action item</p>
+                ) : app.actionItems.map(ai => (
+                  <div
+                    key={ai.id}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg mb-2 border ${
+                      ai.status === 'overdue' ? 'border-red-200 bg-red-50' : ai.status === 'completed' ? 'border-gray-100 bg-emerald-50' : 'border-gray-100 bg-white'
+                    }`}
+                  >
+                    <input type="checkbox" checked={ai.status === 'completed'} onChange={() => toggleActionStatus(ai)} className="flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{ai.title}</div>
+                      <div className="text-xs text-gray-500">{ai.assignee} • Due: {ai.dueDate}</div>
+                    </div>
+                    <Badge variant={aiStatusVariant(ai.status)}>{aiStatusLabel(ai.status)}</Badge>
+                    <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* History */}
+            {tab === 'history' && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3.5">Audit Trail</h3>
+                <div className="relative pl-6">
+                  <div className="absolute left-[7px] top-0 bottom-0 w-0.5 bg-gray-100" />
+                  {[...app.history].reverse().map(h => (
+                    <div key={h.id} className="relative mb-4">
+                      <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-600 border-2 border-white" />
+                      <div className="text-xs text-gray-400 mb-0.5">{h.timestamp}</div>
+                      <div className="text-sm font-medium text-gray-900">{h.action}</div>
+                      <div className="text-xs text-gray-500">oleh {h.user}</div>
+                      {h.notes && <div className="text-xs text-amber-600 italic mt-0.5">"{h.notes}"</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Right sidebar: AI Risk */}
+        <div className="space-y-3">
+          <Card padding={false}>
+            <div
+              className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 cursor-pointer ${riskBg}`}
+              onClick={() => setAiExpanded(e => !e)}
+            >
+              <div className="flex items-center gap-2">
+                <Bot size={15} className="text-gray-700" />
+                <span className="text-sm font-semibold text-gray-900">AI Risk Insight</span>
+              </div>
+              {aiExpanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
+            </div>
+            {aiExpanded && (
+              <div className="p-4">
+                <div className="text-center mb-3.5">
+                  <div
+                    className="w-[72px] h-[72px] rounded-full mx-auto mb-2 flex items-center justify-center"
+                    style={{ background: `conic-gradient(${riskColor} ${app.riskScore * 3.6}deg, #e8edf3 0deg)` }}
+                  >
+                    <div className="w-[52px] h-[52px] rounded-full bg-white flex items-center justify-center">
+                      <span className="text-base font-extrabold" style={{ color: riskColor }}>{app.riskScore}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs font-bold" style={{ color: riskColor }}>Risiko {riskLevel}</div>
+                </div>
+                {aiInsightReasons.length > 0 ? (
+                  <div>
+                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Faktor Risiko</div>
+                    {aiInsightReasons.map((r, i) => (
+                      <div key={i} className="flex gap-1.5 text-xs text-gray-700 py-1">
+                        <span className="flex-shrink-0" style={{ color: riskColor }}>•</span>
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-emerald-600 text-center">Tidak ada faktor risiko teridentifikasi</p>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Escalation */}
+          {app.riskScore >= 50 && (
+            <button
+              onClick={() => setShowEscModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-100 transition-colors"
+            >
+              <Mail size={14} /> Generate Draft Eskalasi
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Escalation Modal */}
+      <Modal
+        open={showEscModal}
+        onClose={() => { setShowEscModal(false); setCopied(false) }}
+        title="Draft Email Eskalasi"
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => { setShowEscModal(false); setCopied(false) }}>Tutup</Button>
+            <Button
+              variant={copied ? 'success' : 'primary'}
+              onClick={async () => {
+                // Bug lama: copy string placeholder 'Draft disalin!', bukan isi draft.
+                // Sekarang copy escalationDraft yang sebenarnya, dan modal tetap
+                // terbuka sebentar supaya feedback "Tersalin" terlihat.
+                await navigator.clipboard?.writeText(escalationDraft)
+                setCopied(true)
+                setTimeout(() => { setCopied(false); setShowEscModal(false) }, 1200)
+              }}
+            >
+              {copied ? '✓ Tersalin' : 'Salin Draft'}
+            </Button>
+          </>
+        }
+      >
+        <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line max-h-96 overflow-y-auto">
+          {escalationDraft}
+        </div>
+      </Modal>
     </div>
   )
 }

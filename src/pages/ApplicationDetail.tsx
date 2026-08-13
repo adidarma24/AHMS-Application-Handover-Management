@@ -110,7 +110,7 @@ export default function ApplicationDetail({ app, currentUser, onNavigate, onUpda
   if (!app.documents.every(d => d.uploaded)) aiInsightReasons.push(`dokumen wajib belum lengkap`)
 
   const escalationDraft = `Kepada: Manager Divisi IT & O&M
-Cc: ${app.businessOwner}, ${app.pic}
+Cc: ${app.businessOwner}, ${app.pic}, ${app.picOM}
 Subjek: [ESKALASI] Hambatan Proses Handover — ${app.name}
 
 Yth. Bapak/Ibu Manager,
@@ -118,7 +118,8 @@ Yth. Bapak/Ibu Manager,
 Dengan hormat, kami sampaikan bahwa proses handover aplikasi berikut memerlukan perhatian segera:
 
 Aplikasi  : ${app.name}
-PIC       : ${app.pic}
+PIC Project : ${app.pic}
+PIC O&M   : ${app.picOM}
 Status    : ${app.status}
 Diajukan  : ${app.submittedDate} (${daysSinceSubmit} hari lalu)
 Kritikalitas: ${app.criticality}
@@ -157,7 +158,8 @@ PT Energi Nusantara Persada`
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            ['PIC', app.pic],
+            ['PIC Project', app.pic],
+            ['PIC O&M', app.picOM],
             ['Business Owner', app.businessOwner],
             ['Target Go-Live', app.goLiveDate],
             ['Diajukan', app.submittedDate],

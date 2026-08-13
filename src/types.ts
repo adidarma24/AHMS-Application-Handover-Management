@@ -59,6 +59,7 @@ export interface Application {
   criticality: Criticality
   businessOwner: string
   pic: string
+  picOM: string
   goLiveDate: string
   technology: string
   environment: string
@@ -86,6 +87,7 @@ export interface ChecklistItem {
   id: string
   text: string
   criticality: Criticality[]
+  category?: string[]
   required: boolean
 }
 

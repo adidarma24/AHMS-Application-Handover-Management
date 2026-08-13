@@ -128,7 +128,8 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             {[
               ['Kritikalitas', <span style={{ fontWeight: 600, color: critColor[selectedApp.criticality] }}>{selectedApp.criticality}</span>],
-              ['PIC', selectedApp.pic],
+              ['PIC Project', selectedApp.pic],
+              ['PIC O&M', selectedApp.picOM],
               ['Business Owner', selectedApp.businessOwner],
               ['Go-Live', selectedApp.goLiveDate],
               ['Teknologi', selectedApp.technology],
@@ -315,7 +316,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
                     </div>
                     <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 10px' }}>{app.description.slice(0, 100)}...</p>
                     <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#374151' }}>
-                      <span>PIC: {app.pic}</span>
+                      <span>PIC Project: {app.pic}</span>
                       <span>Go-Live: {app.goLiveDate}</span>
                       {app.actionItems.filter(a => a.status === 'overdue').length > 0 && (
                         <span style={{ color: '#dc2626', fontWeight: 600 }}>⚠ {app.actionItems.filter(a => a.status === 'overdue').length} overdue</span>

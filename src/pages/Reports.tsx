@@ -174,7 +174,7 @@ export default function Reports({ appState }: Props) {
           onChange={e => setFilterPIC(e.target.value)}
           className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
         >
-          <option value="all">Semua PIC</option>
+          <option value="all">Semua PIC Project</option>
           {uniquePICs.map(p => <option key={p}>{p}</option>)}
         </select>
         {hasActiveFilters && (
@@ -262,8 +262,8 @@ export default function Reports({ appState }: Props) {
 
         <Card>
           <div className="mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Top PIC by Volume</h3>
-            <p className="text-xs text-gray-400">8 PIC teratas</p>
+            <h3 className="text-sm font-semibold text-gray-900">Top PIC Project by Volume</h3>
+            <p className="text-xs text-gray-400">8 PIC Project teratas</p>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={picData} layout="vertical" margin={{ top: 0, right: 10, left: 40, bottom: 0 }}>
@@ -287,7 +287,7 @@ export default function Reports({ appState }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Aplikasi', 'Status', 'Kritikalitas', 'PIC', 'Go-Live', 'Risk Score', 'Action Items'].map(h => (
+                {['Aplikasi', 'Status', 'Kritikalitas', 'PIC Project', 'Go-Live', 'Risk Score', 'Action Items'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 px-5 py-2.5 whitespace-nowrap">
                     {h}
                   </th>

@@ -120,7 +120,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
           <table className="w-full text-sm text-left">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Aplikasi', 'Kritikalitas', 'PIC', 'Status', 'Go-Live', 'Risiko', 'Action Items', ''].map(h => (
+                {['Aplikasi', 'Kritikalitas', 'PIC Project', 'PIC O&M', 'Status', 'Go-Live', 'Risiko', 'Action Items', ''].map(h => (
                   <th key={h} className="text-xs font-medium text-gray-500 px-5 py-3 whitespace-nowrap">
                     {h}
                   </th>
@@ -144,6 +144,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                     </Badge>
                   </td>
                   <td className="px-5 py-3 text-gray-600 text-xs">{app.pic}</td>
+                  <td className="px-5 py-3 text-gray-600 text-xs">{app.picOM}</td>
                   <td className="px-5 py-3">
                     <Badge variant={getStatusVariant(app.status) as any}>
                       {app.status}
@@ -184,7 +185,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
               ))}
               {apps.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={9} className="px-5 py-10 text-center text-gray-400 text-sm">
                     Tidak ada aplikasi yang sesuai filter
                   </td>
                 </tr>

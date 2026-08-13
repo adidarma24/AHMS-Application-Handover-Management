@@ -65,6 +65,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     criticality: 'Medium' as Criticality,
     businessOwner: '',
     pic: currentUser.name,
+    picOM: '',
     goLiveDate: '',
     technology: '',
     environment: '',
@@ -72,18 +73,25 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     vendor: '',
   })
 
-  // Daftar dokumen wajib disesuaikan otomatis berdasarkan kritikalitas — dimemoize
-  // supaya tidak dihitung ulang tiap render, hanya saat kritikalitas berubah.
+  // Daftar dokumen wajib mengikuti Alur Utama poin 3 pada use case AHMS.
+  // Item yang menyangkut security/performance/backup tetap mengikuti kritikalitas,
+  // sisanya wajib untuk semua aplikasi.
   const docTypes = useMemo(
     () => [
-      { id: 'd-new-1', name: 'Business Requirements Document (BRD)', required: true },
-      { id: 'd-new-2', name: 'System Requirements Specification (SRS)', required: true },
-      { id: 'd-new-3', name: 'User Manual / Panduan Pengguna', required: true },
-      { id: 'd-new-4', name: 'Architecture & Technical Design', required: true },
-      { id: 'd-new-5', name: 'SLA Agreement', required: form.criticality !== 'Low' },
-      { id: 'd-new-6', name: 'Security Assessment Report', required: form.criticality === 'Critical' || form.criticality === 'High' },
-      { id: 'd-new-7', name: 'DRP / Backup Recovery Plan', required: form.criticality === 'Critical' || form.criticality === 'High' },
-      { id: 'd-new-8', name: 'UAT Sign-off Document', required: false },
+      { id: 'd-new-1', name: 'Dokumen Arsitektur Aplikasi', required: true },
+      { id: 'd-new-2', name: 'Dokumen Desain Teknis', required: true },
+      { id: 'd-new-3', name: 'Dokumen Konfigurasi Environment', required: true },
+      { id: 'd-new-4', name: 'SOP Operasional', required: true },
+      { id: 'd-new-5', name: 'SOP Penanganan Gangguan (Incident Handling)', required: true },
+      { id: 'd-new-6', name: 'User Manual', required: true },
+      { id: 'd-new-7', name: 'Administrator Manual', required: true },
+      { id: 'd-new-8', name: 'Hasil UAT (User Acceptance Test)', required: true },
+      { id: 'd-new-9', name: 'Hasil Security Assessment / Vulnerability Assessment', required: form.criticality === 'Critical' || form.criticality === 'High' },
+      { id: 'd-new-10', name: 'Hasil Performance Test', required: form.criticality === 'Critical' || form.criticality === 'High' },
+      { id: 'd-new-11', name: 'Daftar Open Defect & Known Issue', required: true },
+      { id: 'd-new-12', name: 'Dokumen Backup & Recovery', required: form.criticality !== 'Low' },
+      { id: 'd-new-13', name: 'Daftar Kontak Vendor / Pihak Ketiga', required: true },
+      { id: 'd-new-14', name: 'Source Code Repository & Informasi Versioning', required: true },
     ],
     [form.criticality],
   )
@@ -91,20 +99,33 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
 
+  // Checklist dibedakan berdasarkan KATEGORI dan KRITIKALITAS aplikasi
+  // (Kebutuhan Fungsional #3). Item tanpa `category` berlaku untuk semua kategori.
   const checklistItems = useMemo(
-    () => INITIAL_CHECKLIST_ITEMS.filter(ci => ci.criticality.includes(form.criticality)),
-    [form.criticality],
+    () => INITIAL_CHECKLIST_ITEMS.filter(ci =>
+      ci.criticality.includes(form.criticality) &&
+      (!ci.category || ci.category.length === 0 || ci.category.includes(form.category))
+    ),
+    [form.criticality, form.category],
   )
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
 
   const f = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
+
+  // Daftar PIC O&M diambil dari user aktif dengan role O&M Application Support,
+  // supaya assignment reviewer O&M mengikuti input PM, bukan nilai statis.
+  const omStaff = useMemo(
+    () => appState.users.filter(u => u.role === 'O&M Application Support' && u.active),
+    [appState.users],
+  )
 
   function validateStep0() {
     const e: Record<string, string> = {}
     if (!form.name.trim()) e.name = 'Nama aplikasi wajib diisi'
     if (!form.description.trim()) e.description = 'Deskripsi wajib diisi'
     if (!form.businessOwner.trim()) e.businessOwner = 'Business Owner wajib diisi'
-    if (!form.pic.trim()) e.pic = 'PIC wajib diisi'
+    if (!form.pic.trim()) e.pic = 'PIC Project wajib diisi'
+    if (!form.picOM.trim()) e.picOM = 'PIC O&M wajib diisi'
     if (!form.goLiveDate) e.goLiveDate = 'Tanggal go-live wajib diisi'
     if (!form.technology.trim()) e.technology = 'Teknologi wajib diisi'
     if (!form.environment) e.environment = 'Environment wajib dipilih'
@@ -156,7 +177,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
   function resetForm() {
     setStep(0)
     setSubmitted(false)
-    setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, goLiveDate: '', technology: '', environment: '', category: '', vendor: '' })
+    setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, picOM: '', goLiveDate: '', technology: '', environment: '', category: '', vendor: '' })
     setUploads({})
     setUploadErrors({})
     setCheckedItems({})
@@ -173,6 +194,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
       criticality: form.criticality,
       businessOwner: form.businessOwner,
       pic: form.pic,
+      picOM: form.picOM,
       goLiveDate: form.goLiveDate,
       technology: form.technology,
       environment: form.environment,
@@ -183,7 +205,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
       targetHandoverDate: form.goLiveDate,
       reviewers: [
         { role: 'Reviewer Teknis', name: 'Reza Firmansyah', status: 'pending' },
-        { role: 'O&M Application Support', name: 'Sari Dewi', status: 'pending' },
+        { role: 'O&M Application Support', name: form.picOM, status: 'pending' },
         { role: 'Business Owner', name: form.businessOwner, status: 'pending' },
       ],
       actionItems: [],
@@ -277,17 +299,26 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
               <Field label="Kategori">
                 <select value={form.category} onChange={e => f('category', e.target.value)} className={inputCls()}>
                   <option value="">-- Pilih Kategori --</option>
-                  {['Operations', 'Upstream', 'Integrity', 'HSE', 'Finance', 'Procurement', 'Analytics', 'Asset', 'HR', 'Document'].map(c => <option key={c}>{c}</option>)}
+                  {['Operations', 'Upstream', 'Production', 'Drilling', 'Integrity', 'HSE', 'Finance', 'Procurement', 'Supply Chain', 'Trading', 'Analytics', 'Geoscience', 'Geospatial', 'Asset', 'Maintenance', 'Laboratory', 'Compliance', 'HR', 'Document'].map(c => <option key={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="Business Owner *" error={errors.businessOwner}>
                 <input value={form.businessOwner} onChange={e => f('businessOwner', e.target.value)} placeholder="Nama business owner" className={inputCls(errors.businessOwner)} />
               </Field>
-              <Field label="PIC / Person in Charge *" error={errors.pic}>
+              <Field label="PIC Project *" error={errors.pic}>
                 <select value={form.pic} onChange={e => f('pic', e.target.value)} className={inputCls(errors.pic)}>
                   <option value={currentUser.name}>{currentUser.name} (saya)</option>
                   {appState.picList.map(p => p.name !== currentUser.name ? <option key={p.id} value={p.name}>{p.name} — {p.department}</option> : null)}
                 </select>
+              </Field>
+              <Field label="PIC O&M *" error={errors.picOM}>
+                <select value={form.picOM} onChange={e => f('picOM', e.target.value)} className={inputCls(errors.picOM)}>
+                  <option value="">-- Pilih PIC O&M --</option>
+                  {omStaff.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Penanggung jawab O&M yang akan menerima aplikasi ini setelah handover
+                </p>
               </Field>
               <Field label="Target Go-Live *" error={errors.goLiveDate}>
                 <input type="date" value={form.goLiveDate} onChange={e => f('goLiveDate', e.target.value)} className={inputCls(errors.goLiveDate)} />
@@ -411,7 +442,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-1">Step 3: Checklist Readiness</h3>
             <p className="text-xs text-gray-500 mb-4">
-              Checklist di bawah disesuaikan dengan kritikalitas <strong>{form.criticality}</strong> ({checklistItems.length} item)
+              Checklist di bawah disesuaikan dengan kategori <strong>{form.category || 'Umum'}</strong> dan kritikalitas <strong>{form.criticality}</strong> ({checklistItems.length} item)
             </p>
             <div className="flex flex-col gap-2">
               {checklistItems.map(item => (
@@ -448,7 +479,8 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                 ['Nama Aplikasi', form.name],
                 ['Kritikalitas', form.criticality],
                 ['Business Owner', form.businessOwner],
-                ['PIC', form.pic],
+                ['PIC Project', form.pic],
+                ['PIC O&M', form.picOM],
                 ['Target Go-Live', form.goLiveDate],
                 ['Environment', form.environment],
                 ['Teknologi', form.technology],
@@ -467,6 +499,12 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                 <div className="text-xs text-gray-500 font-medium">Dokumen Terupload</div>
                 <div className="text-sm text-gray-900">
                   {docTypes.filter(d => uploads[d.id]?.status === 'done').length} dari {docTypes.length} dokumen
+                </div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-xs text-gray-500 font-medium">Checklist Readiness</div>
+                <div className="text-sm text-gray-900">
+                  {Object.values(checkedItems).filter(Boolean).length} dari {checklistItems.length} item tercentang
                 </div>
               </div>
             </div>

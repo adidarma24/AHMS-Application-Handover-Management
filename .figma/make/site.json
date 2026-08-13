@@ -1,0 +1,11 @@
+{
+  "title": "AHMS - Application Handover Management System v2",
+  "description": "Streamline application handover processes for energy sector enterprises with role-based dashboards, real-time updates, and comprehensive analytics.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

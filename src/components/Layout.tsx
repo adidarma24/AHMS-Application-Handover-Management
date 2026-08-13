@@ -15,9 +15,10 @@ import {
   ChevronDown,
   User,
   Check,
-  ExternalLink,
   FilePlus,
+  X,
 } from "lucide-react";
+import { Modal } from "../components/ui/Modal";
 import type { AppState, Role } from "../types";
 import type { Page } from "../App";
 
@@ -151,10 +152,15 @@ export default function Layout({
   const [collapsed, setCollapsed] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
+  const [showAllNotif, setShowAllNotif] = useState(false);
+  const [notifSearch, setNotifSearch] = useState("");
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   // Filter menu berdasarkan hak akses
   const visibleItems = NAV_ITEMS.filter((item) =>
@@ -169,9 +175,10 @@ export default function Layout({
     .substring(0, 2)
     .toUpperCase();
 
-  // Notifikasi diambil dari data asli (history aplikasi), sama seperti
-  // "Aktivitas Terkini" di Dashboard.tsx — bukan lagi data dummy statis
-  const notifications = useMemo(() => {
+  // Seluruh notifikasi (history semua aplikasi), sama seperti "Aktivitas Terkini"
+  // di Dashboard.tsx — bukan data dummy statis. Dropdown hanya menampilkan 8
+  // teratas (notifPreview); modal "Lihat semua aktivitas" menampilkan semuanya.
+  const allNotifications = useMemo(() => {
     return appState.applications
       .flatMap((a) =>
         a.history.map((h) => ({ ...h, appName: a.name, appId: a.id })),
@@ -179,11 +186,55 @@ export default function Layout({
       .sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-      )
-      .slice(0, 8);
+      );
   }, [appState.applications]);
 
-  const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
+  const notifPreview = useMemo(() => allNotifications.slice(0, 8), [allNotifications]);
+
+  const filteredAllNotifications = useMemo(() => {
+    if (!notifSearch.trim()) return allNotifications;
+    const q = notifSearch.toLowerCase();
+    return allNotifications.filter(
+      (n) =>
+        n.appName.toLowerCase().includes(q) ||
+        n.action.toLowerCase().includes(q) ||
+        n.user.toLowerCase().includes(q),
+    );
+  }, [allNotifications, notifSearch]);
+
+  const unreadCount = allNotifications.filter((n) => !readIds.has(n.id)).length;
+
+  // Global search — mencari aplikasi (nama/PIC/BO/teknologi) dan dokumen (nama),
+  // dibatasi 5 hasil per kategori supaya dropdown tetap ringkas.
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return { apps: [], docs: [] as { id: string; name: string; appId: string; appName: string }[] };
+    const apps = appState.applications
+      .filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.pic.toLowerCase().includes(q) ||
+          a.businessOwner.toLowerCase().includes(q) ||
+          a.technology.toLowerCase().includes(q),
+      )
+      .slice(0, 5);
+    const docs = appState.applications
+      .flatMap((a) =>
+        a.documents
+          .filter((d) => d.name.toLowerCase().includes(q))
+          .map((d) => ({ id: d.id, name: d.name, appId: a.id, appName: a.name })),
+      )
+      .slice(0, 5);
+    return { apps, docs };
+  }, [searchQuery, appState.applications]);
+
+  const hasSearchResults = searchResults.apps.length > 0 || searchResults.docs.length > 0;
+
+  function goToSearchResult(appId: string) {
+    setShowSearch(false);
+    setSearchQuery("");
+    onNavigate("app-detail", appId);
+  }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -191,13 +242,22 @@ export default function Layout({
         setShowNotif(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node))
         setShowProfile(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node))
+        setShowSearch(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const markAllRead = () =>
-    setReadIds(new Set(notifications.map((n) => n.id)));
+    setReadIds(new Set(allNotifications.map((n) => n.id)));
+
+  function openNotification(appId: string, notifId: string) {
+    setReadIds((s) => new Set([...s, notifId]));
+    setShowNotif(false);
+    setShowAllNotif(false);
+    onNavigate("app-detail", appId);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -265,17 +325,81 @@ export default function Layout({
         className="fixed top-0 right-0 h-14 bg-white border-b border-gray-200 flex items-center px-5 gap-4 z-20 transition-all duration-200"
         style={{ left: collapsed ? 56 : 240 }}
       >
-        {/* Search */}
-        <div className="flex-1 max-w-sm relative">
+        {/* Search — cari aplikasi (nama/PIC/BO/teknologi) & dokumen, hasil tampil sebagai dropdown */}
+        <div className="flex-1 max-w-sm relative" ref={searchRef}>
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
           />
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setShowSearch(true) }}
+            onFocus={() => searchQuery && setShowSearch(true)}
             placeholder="Cari aplikasi, dokumen..."
-            className="w-full pl-9 pr-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 placeholder:text-gray-400"
+            className="w-full pl-9 pr-8 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 placeholder:text-gray-400"
           />
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(""); setShowSearch(false) }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={13} />
+            </button>
+          )}
+
+          {showSearch && searchQuery && (
+            <div className="absolute left-0 top-full mt-2 w-full min-w-[320px] bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+              {!hasSearchResults ? (
+                <p className="text-xs text-gray-400 text-center py-6">
+                  Tidak ada hasil untuk "{searchQuery}"
+                </p>
+              ) : (
+                <div className="max-h-96 overflow-y-auto">
+                  {searchResults.apps.length > 0 && (
+                    <div className="py-1.5">
+                      <div className="px-4 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                        Aplikasi
+                      </div>
+                      {searchResults.apps.map((a) => (
+                        <button
+                          key={a.id}
+                          onClick={() => goToSearchResult(a.id)}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <AppWindow size={15} className="text-indigo-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-gray-900 truncate">{a.name}</div>
+                            <div className="text-[11px] text-gray-400">{a.pic} • {a.status}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {searchResults.docs.length > 0 && (
+                    <div className="py-1.5 border-t border-gray-50">
+                      <div className="px-4 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                        Dokumen
+                      </div>
+                      {searchResults.docs.map((d) => (
+                        <button
+                          key={d.id}
+                          onClick={() => goToSearchResult(d.appId)}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <FileText size={15} className="text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-gray-900 truncate">{d.name}</div>
+                            <div className="text-[11px] text-gray-400 truncate">{d.appName}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex-1" />
@@ -316,16 +440,12 @@ export default function Layout({
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
-                {notifications.map((n) => {
+                {notifPreview.map((n) => {
                   const isRead = readIds.has(n.id);
                   return (
                     <button
                       key={n.id}
-                      onClick={() => {
-                        setReadIds((s) => new Set([...s, n.id]));
-                        setShowNotif(false);
-                        onNavigate("app-detail", n.appId);
-                      }}
+                      onClick={() => openNotification(n.appId, n.id)}
                       className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${!isRead ? "bg-indigo-50/40" : ""}`}
                     >
                       <span className="text-base leading-none mt-0.5 shrink-0">
@@ -348,7 +468,7 @@ export default function Layout({
                     </button>
                   );
                 })}
-                {notifications.length === 0 && (
+                {notifPreview.length === 0 && (
                   <p className="text-xs text-gray-400 text-center py-8">
                     Belum ada aktivitas
                   </p>
@@ -359,11 +479,11 @@ export default function Layout({
                 <button
                   onClick={() => {
                     setShowNotif(false);
-                    onNavigate("dashboard");
+                    setShowAllNotif(true);
                   }}
                   className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600 font-medium hover:bg-indigo-50 rounded-xl transition-colors"
                 >
-                  Lihat semua aktivitas <ExternalLink size={11} />
+                  Lihat semua aktivitas
                 </button>
               </div>
             </div>
@@ -429,6 +549,65 @@ export default function Layout({
       >
         <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </main>
+
+      {/* ================= MODAL: SEMUA NOTIFIKASI ================= */}
+      <Modal
+        open={showAllNotif}
+        onClose={() => { setShowAllNotif(false); setNotifSearch("") }}
+        title="Semua Notifikasi"
+        size="lg"
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1 relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={notifSearch}
+              onChange={(e) => setNotifSearch(e.target.value)}
+              placeholder="Cari aplikasi, aksi, atau nama..."
+              className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+            />
+          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllRead}
+              className="text-xs text-indigo-600 hover:underline flex items-center gap-1 flex-shrink-0"
+            >
+              <Check size={12} /> Tandai semua dibaca
+            </button>
+          )}
+        </div>
+
+        <div className="-mx-6 border-t border-gray-100 max-h-[60vh] overflow-y-auto divide-y divide-gray-50">
+          {filteredAllNotifications.map((n) => {
+            const isRead = readIds.has(n.id);
+            return (
+              <button
+                key={n.id}
+                onClick={() => openNotification(n.appId, n.id)}
+                className={`w-full flex items-start gap-3 px-6 py-3 text-left hover:bg-gray-50 transition-colors ${!isRead ? "bg-indigo-50/40" : ""}`}
+              >
+                <span className="text-base leading-none mt-0.5 shrink-0">
+                  {notifIcon(n.action)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm leading-snug ${!isRead ? "text-gray-900 font-semibold" : "text-gray-600"}`}>
+                    <span className="font-medium">{n.appName}</span>: {n.action}
+                    {n.user ? ` — ${n.user}` : ""}
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{n.timestamp}</p>
+                </div>
+                {!isRead && <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full mt-1.5 shrink-0" />}
+              </button>
+            );
+          })}
+          {filteredAllNotifications.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-10">
+              {notifSearch ? "Tidak ada notifikasi yang cocok" : "Belum ada aktivitas"}
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

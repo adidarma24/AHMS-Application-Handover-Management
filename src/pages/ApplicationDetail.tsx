@@ -18,7 +18,7 @@ interface Props {
   onUpdateApp: (id: string, updates: Partial<Application>) => void
 }
 
-type Tab = 'overview' | 'documents' | 'action-items' | 'history'
+type Tab = 'overview' | 'documents' | 'action-items' | 'history' | 'berita-acara'
 
 // Konsisten dengan skema warna Badge.tsx (dipakai juga di Reports.tsx)
 const statusVariant: Record<AppStatus, any> = {
@@ -38,11 +38,12 @@ const priorityVariant = (p: string) => (p === 'high' ? 'high' : p === 'medium' ?
 const aiStatusVariant = (s: string) => (s === 'overdue' ? 'overdue' : s === 'completed' ? 'done' : 'open')
 const aiStatusLabel = (s: string) => (s === 'overdue' ? 'OVERDUE' : s === 'completed' ? 'DONE' : 'OPEN')
 
-export default function ApplicationDetail({ app, currentUser, onNavigate, onUpdateApp }: Props) {
+export default function ApplicationDetail({ app, appState, currentUser, onNavigate, onUpdateApp }: Props) {
   const [tab, setTab] = useState<Tab>('overview')
   const [showEscModal, setShowEscModal] = useState(false)
   const [aiExpanded, setAiExpanded] = useState(true)
   const [newActionTitle, setNewActionTitle] = useState('')
+  const [newActionRequired, setNewActionRequired] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const overdueCount = app.actionItems.filter(a => a.status === 'overdue').length
@@ -58,6 +59,7 @@ export default function ApplicationDetail({ app, currentUser, onNavigate, onUpda
     { id: 'documents', label: `Dokumen (${app.documents.length})` },
     { id: 'action-items', label: `Action Items (${app.actionItems.length})` },
     { id: 'history', label: 'Riwayat / Audit Trail' },
+    ...(app.beritaAcaraNumber ? [{ id: 'berita-acara' as Tab, label: 'Berita Acara' }] : []),
   ]
 
   function nowTimestamp() {
@@ -77,15 +79,17 @@ export default function ApplicationDetail({ app, currentUser, onNavigate, onUpda
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       status: 'open' as const,
       priority: 'medium' as const,
+      required: newActionRequired,
     }
     const historyEntry = {
       id: `h-${Date.now()}`,
       timestamp: nowTimestamp(),
       user: currentUser.name,
-      action: `Action item ditambahkan: "${title}"`,
+      action: `Action item ditambahkan${newActionRequired ? ' (WAJIB)' : ''}: "${title}"`,
     }
     onUpdateApp(app.id, { actionItems: [...app.actionItems, newItem], history: [...app.history, historyEntry] })
     setNewActionTitle('')
+    setNewActionRequired(false)
   }
 
   function toggleActionStatus(ai: Application['actionItems'][number]) {
@@ -132,7 +136,77 @@ Kami memohon intervensi dan keputusan dalam waktu 3 hari kerja untuk memastikan 
 Hormat kami,
 ${currentUser.name}
 ${currentUser.role}
-PT Energi Nusantara Persada`
+PT PERTAMINA`
+
+  // Membuka jendela cetak berisi Berita Acara yang sudah diformat, supaya bisa
+  // langsung di-print atau disimpan sebagai PDF lewat dialog print browser.
+  function printBeritaAcara() {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    const reviewersRows = app.reviewers
+      .map(
+        r => `
+        <tr>
+          <td>${r.role}</td>
+          <td>${r.name}</td>
+          <td>${r.status === 'approved' ? 'Disetujui' : r.status === 'approved_with_condition' ? 'Disetujui dgn Kondisi' : r.status}</td>
+          <td>${r.reviewedAt || '-'}</td>
+        </tr>`
+      )
+      .join('')
+    const managerOM = appState.users.find(u => u.role === 'Manager O&M')?.name || '-'
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Berita Acara Handover - ${app.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; color: #1a2332; }
+            h1 { text-align: center; font-size: 16px; margin-bottom: 4px; }
+            .num { text-align: center; font-size: 12px; color: #6b7280; margin-bottom: 24px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 16px 0; }
+            td, th { padding: 6px 8px; }
+            .info td:first-child { width: 160px; color: #6b7280; vertical-align: top; }
+            .approvals th, .approvals td { border: 1px solid #e5e7eb; }
+            .approvals th { background: #f9fafb; text-align: left; }
+            .sign { display: flex; justify-content: space-between; margin-top: 60px; text-align: center; }
+            .sign div { width: 30%; }
+            .sign .line { border-top: 1px solid #333; margin-top: 50px; padding-top: 6px; font-weight: 600; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <h1>BERITA ACARA SERAH TERIMA (HANDOVER) APLIKASI</h1>
+          <div class="num">Nomor: ${app.beritaAcaraNumber}</div>
+          <p>Pada hari ini, <strong>${app.beritaAcaraGeneratedAt}</strong>, telah dilaksanakan serah terima tanggung jawab operasional aplikasi berikut dari Project Team kepada O&amp;M Application Support, dengan rincian sebagai berikut:</p>
+          <table class="info">
+            <tbody>
+              <tr><td>Nama Aplikasi</td><td>: ${app.name}</td></tr>
+              <tr><td>Kategori</td><td>: ${app.category}</td></tr>
+              <tr><td>Kritikalitas</td><td>: ${app.criticality}</td></tr>
+              <tr><td>PIC Project</td><td>: ${app.pic}</td></tr>
+              <tr><td>PIC O&amp;M</td><td>: ${app.picOM}</td></tr>
+              <tr><td>Business Owner</td><td>: ${app.businessOwner}</td></tr>
+              <tr><td>Tanggal Go-Live</td><td>: ${app.goLiveDate}</td></tr>
+            </tbody>
+          </table>
+          <p>Aplikasi tersebut telah melalui proses review dan dinyatakan <strong>LAYAK</strong> untuk diserahterimakan, dengan persetujuan sebagai berikut:</p>
+          <table class="approvals">
+            <thead><tr><th>Peran</th><th>Nama</th><th>Status</th><th>Tanggal</th></tr></thead>
+            <tbody>${reviewersRows}</tbody>
+          </table>
+          <p>Seluruh action item wajib terkait proses handover ini telah diselesaikan per tanggal berita acara ini diterbitkan. Dokumen ini dihasilkan otomatis oleh sistem AHMS dan sah tanpa memerlukan tanda tangan basah.</p>
+          <div class="sign">
+            <div><div class="line">${app.pic}</div><div>Project Manager</div></div>
+            <div><div class="line">${app.picOM}</div><div>O&amp;M Application Support</div></div>
+            <div><div class="line">${managerOM}</div><div>Manager O&amp;M</div></div>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
@@ -255,7 +329,7 @@ PT Energi Nusantara Persada`
             {/* Action Items */}
             {tab === 'action-items' && (
               <div>
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-2">
                   <input
                     value={newActionTitle}
                     onChange={e => setNewActionTitle(e.target.value)}
@@ -267,6 +341,14 @@ PT Energi Nusantara Persada`
                     <Plus size={14} /> Tambah
                   </Button>
                 </div>
+                <label className="flex items-center gap-2 mb-4 text-xs text-gray-600 cursor-pointer w-fit">
+                  <input
+                    type="checkbox"
+                    checked={newActionRequired}
+                    onChange={e => setNewActionRequired(e.target.checked)}
+                  />
+                  Wajib diselesaikan sebelum final approval
+                </label>
                 {app.actionItems.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-6">Belum ada action item</p>
                 ) : app.actionItems.map(ai => (
@@ -281,6 +363,7 @@ PT Energi Nusantara Persada`
                       <div className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{ai.title}</div>
                       <div className="text-xs text-gray-500">{ai.assignee} • Due: {ai.dueDate}</div>
                     </div>
+                    {ai.required && <Badge variant="rejected">WAJIB</Badge>}
                     <Badge variant={aiStatusVariant(ai.status)}>{aiStatusLabel(ai.status)}</Badge>
                     <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>
                   </div>
@@ -303,6 +386,90 @@ PT Energi Nusantara Persada`
                       {h.notes && <div className="text-xs text-amber-600 italic mt-0.5">"{h.notes}"</div>}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Berita Acara Handover — digenerate otomatis oleh sistem saat Final Approval
+                diberikan (Kebutuhan Fungsional #13). Hanya muncul jika app.beritaAcaraNumber ada. */}
+            {tab === 'berita-acara' && app.beritaAcaraNumber && (
+              <div>
+                <div className="flex items-center justify-between mb-3.5">
+                  <h3 className="text-sm font-semibold text-gray-900">Berita Acara Serah Terima Handover</h3>
+                  <Button size="sm" variant="outline" onClick={printBeritaAcara}>
+                    Cetak / Unduh
+                  </Button>
+                </div>
+                <div className="border border-gray-200 rounded-xl p-6 bg-white text-sm text-gray-800 leading-relaxed">
+                  <div className="text-center mb-5">
+                    <div className="font-bold text-base">BERITA ACARA SERAH TERIMA (HANDOVER) APLIKASI</div>
+                    <div className="text-xs text-gray-500 mt-1">Nomor: {app.beritaAcaraNumber}</div>
+                  </div>
+                  <p>
+                    Pada hari ini, <strong>{app.beritaAcaraGeneratedAt}</strong>, telah dilaksanakan serah terima
+                    tanggung jawab operasional aplikasi berikut dari Project Team kepada O&M Application Support,
+                    dengan rincian sebagai berikut:
+                  </p>
+                  <table className="w-full text-xs my-4">
+                    <tbody>
+                      {[
+                        ['Nama Aplikasi', app.name],
+                        ['Kategori', app.category],
+                        ['Kritikalitas', app.criticality],
+                        ['PIC Project', app.pic],
+                        ['PIC O&M', app.picOM],
+                        ['Business Owner', app.businessOwner],
+                        ['Tanggal Go-Live', app.goLiveDate],
+                      ].map(([k, v]) => (
+                        <tr key={k}>
+                          <td className="py-1 pr-3 text-gray-500 w-40 align-top">{k}</td>
+                          <td className="py-1 font-medium text-gray-900">: {v}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mb-2">
+                    Aplikasi tersebut telah melalui proses review dan dinyatakan <strong>LAYAK</strong> untuk
+                    diserahterimakan, dengan persetujuan sebagai berikut:
+                  </p>
+                  <table className="w-full text-xs mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="text-left px-2.5 py-1.5 font-medium text-gray-600">Peran</th>
+                        <th className="text-left px-2.5 py-1.5 font-medium text-gray-600">Nama</th>
+                        <th className="text-left px-2.5 py-1.5 font-medium text-gray-600">Status</th>
+                        <th className="text-left px-2.5 py-1.5 font-medium text-gray-600">Tanggal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {app.reviewers.map(r => (
+                        <tr key={r.role} className="border-t border-gray-100">
+                          <td className="px-2.5 py-1.5">{r.role}</td>
+                          <td className="px-2.5 py-1.5">{r.name}</td>
+                          <td className="px-2.5 py-1.5">{r.status === 'approved' ? 'Disetujui' : r.status === 'approved_with_condition' ? 'Disetujui dgn Kondisi' : r.status}</td>
+                          <td className="px-2.5 py-1.5">{r.reviewedAt || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mb-4">
+                    Seluruh action item wajib terkait proses handover ini telah diselesaikan per tanggal
+                    berita acara ini diterbitkan. Dokumen ini dihasilkan otomatis oleh sistem AHMS dan sah
+                    tanpa memerlukan tanda tangan basah.
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 text-center text-xs mt-8">
+                    {[
+                      ['Project Manager', app.pic],
+                      ['O&M Application Support', app.picOM],
+                      ['Manager O&M', appState.users.find(u => u.role === 'Manager O&M')?.name || '-'],
+                    ].map(([role, name]) => (
+                      <div key={role}>
+                        <div className="h-14" />
+                        <div className="border-t border-gray-300 pt-1.5 font-medium text-gray-900">{name}</div>
+                        <div className="text-gray-500">{role}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

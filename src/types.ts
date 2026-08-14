@@ -33,6 +33,7 @@ export interface ActionItem {
   dueDate: string
   status: 'open' | 'completed' | 'overdue'
   priority: 'high' | 'medium' | 'low'
+  required: boolean
 }
 
 export interface AppDocument {
@@ -73,6 +74,8 @@ export interface Application {
   documents: AppDocument[]
   history: HistoryEntry[]
   riskScore: number
+  beritaAcaraNumber?: string
+  beritaAcaraGeneratedAt?: string
 }
 
 export interface User {

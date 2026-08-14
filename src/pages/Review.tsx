@@ -33,8 +33,15 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
     return app.reviewers.length > 0 && app.reviewers.every(r => r.status === 'approved' || r.status === 'approved_with_condition')
   }
 
+  // Sesuai use case: final approval baru bisa diberikan jika seluruh reviewer
+  // approve DAN seluruh action item yang ditandai WAJIB sudah completed
+  // (bukan sekadar "tidak overdue").
+  function requiredActionItemsDone(app: Application) {
+    return app.actionItems.filter(ai => ai.required).every(ai => ai.status === 'completed')
+  }
+
   function canFinalApprove(app: Application) {
-    return allReviewersApproved(app) && app.actionItems.every(ai => ai.status !== 'overdue')
+    return allReviewersApproved(app) && requiredActionItemsDone(app)
   }
 
   function handleSubmitReview() {
@@ -71,15 +78,27 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
     setSubmitted(true)
   }
 
+  // Final approval sekaligus men-generate Berita Acara Handover otomatis
+  // (Kebutuhan Fungsional #13): nomor + tanggal terbit dicatat di data aplikasi,
+  // dan tercatat di audit trail.
   function handleFinalApprove(app: Application) {
     const now = new Date().toISOString().slice(0, 10)
+    const appNum = app.id.replace('app-', '')
+    const beritaAcaraNumber = `BA-HO/${appNum}/${new Date().getFullYear()}`
     onUpdateApp(app.id, {
       status: 'Handover Accepted',
+      beritaAcaraNumber,
+      beritaAcaraGeneratedAt: now,
       history: [...app.history, {
         id: `h-${Date.now()}`,
         timestamp: `${now} ${new Date().toTimeString().slice(0, 5)}`,
         user: currentUser.name,
         action: 'Final Approval diberikan — Status: Handover Accepted',
+      }, {
+        id: `h-${Date.now() + 1}`,
+        timestamp: `${now} ${new Date().toTimeString().slice(0, 5)}`,
+        user: 'Sistem',
+        action: `Berita Acara Handover No. ${beritaAcaraNumber} diterbitkan otomatis`,
       }],
     })
     setSelectedAppId(null)
@@ -251,9 +270,9 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
               </span>
             </div>
           ))}
-          {selectedApp.actionItems.filter(a => a.status === 'overdue').length > 0 && (
+          {selectedApp.actionItems.filter(a => a.required && a.status !== 'completed').length > 0 && (
             <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, marginTop: 12, fontSize: 13, color: '#dc2626' }}>
-              ⚠ Ada {selectedApp.actionItems.filter(a => a.status === 'overdue').length} action item overdue yang belum diselesaikan
+              ⚠ Ada {selectedApp.actionItems.filter(a => a.required && a.status !== 'completed').length} action item WAJIB yang belum diselesaikan
             </div>
           )}
           <button
@@ -265,13 +284,13 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
               color: 'white', cursor: canApprove ? 'pointer' : 'not-allowed',
               fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
             }}
-            title={!canApprove ? 'Semua reviewer harus approve dan tidak ada action item overdue' : ''}
+            title={!canApprove ? 'Semua reviewer harus approve dan seluruh action item wajib harus completed' : ''}
           >
             {canApprove ? '✓ Final Approval — Handover Accepted' : '⊘ Final Approval (syarat belum terpenuhi)'}
           </button>
           {!canApprove && (
             <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', marginTop: 8 }}>
-              Semua reviewer harus approve & tidak ada action item overdue
+              Semua reviewer harus approve & seluruh action item wajib harus completed
             </p>
           )}
         </div>

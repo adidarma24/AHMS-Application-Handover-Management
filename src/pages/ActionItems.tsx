@@ -14,6 +14,7 @@ interface Props {
 export default function ActionItems({ appState, currentUser, onNavigate }: Props) {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
+  const [filterRequired, setFilterRequired] = useState('all')
 
   const allItems = useMemo(() => {
     return appState.applications.flatMap(app =>
@@ -25,9 +26,10 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
     let list = allItems
     if (filterStatus !== 'all') list = list.filter(ai => ai.status === filterStatus)
     if (filterPriority !== 'all') list = list.filter(ai => ai.priority === filterPriority)
+    if (filterRequired === 'required') list = list.filter(ai => ai.required)
     if (currentUser.role === 'Project Manager') list = list.filter(ai => ai.pic === currentUser.name || ai.assignee === currentUser.name)
     return list
-  }, [allItems, filterStatus, filterPriority, currentUser])
+  }, [allItems, filterStatus, filterPriority, filterRequired, currentUser])
 
   const overdueCount = filtered.filter(ai => ai.status === 'overdue').length
   const openCount = filtered.filter(ai => ai.status === 'open').length
@@ -90,6 +92,14 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+        <select
+          value={filterRequired}
+          onChange={e => setFilterRequired(e.target.value)}
+          className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+        >
+          <option value="all">Semua Item</option>
+          <option value="required">Wajib Saja</option>
+        </select>
       </div>
 
       {/* List — struktur tabel sama dengan tabel "Aplikasi Perlu Perhatian" di Dashboard */}
@@ -114,9 +124,12 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
                   className={`border-b border-gray-50 hover:bg-gray-50 ${ai.status === 'overdue' ? 'bg-red-50/40' : ''}`}
                 >
                   <td className="px-5 py-3">
-                    <span className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
-                      {ai.title}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                        {ai.title}
+                      </span>
+                      {ai.required && <Badge variant="rejected">WAJIB</Badge>}
+                    </div>
                   </td>
                   <td className="px-3 py-3">
                     <button

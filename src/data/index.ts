@@ -15,8 +15,8 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Budi Santoso', status: 'approved', reviewedAt: '2024-02-15' },
     ],
     actionItems: [
-      { id: 'ai-001', title: 'Finalisasi dokumentasi API', assignee: 'Andi Pratama', dueDate: '2024-02-20', status: 'completed', priority: 'high' },
-      { id: 'ai-002', title: 'Training O&M team', assignee: 'Sari Dewi', dueDate: '2024-02-28', status: 'completed', priority: 'medium' },
+      { id: 'ai-001', title: 'Finalisasi dokumentasi API', assignee: 'Andi Pratama', dueDate: '2024-02-20', status: 'completed', priority: 'high', required: true },
+      { id: 'ai-002', title: 'Training O&M team', assignee: 'Sari Dewi', dueDate: '2024-02-28', status: 'completed', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd001', name: 'Technical Specification', type: 'SRS', uploaded: true, required: true, uploadedAt: '2024-01-15' },
@@ -29,6 +29,8 @@ export const INITIAL_APPS: Application[] = [
       { id: 'h003', timestamp: '2024-03-01 10:00', user: 'Manager O&M', action: 'Final approval diberikan' },
     ],
     riskScore: 12,
+    beritaAcaraNumber: 'BA-HO/001/2024',
+    beritaAcaraGeneratedAt: '2024-03-01',
   },
   {
     id: 'app-002', name: 'Well Management System (WMS)',
@@ -44,9 +46,9 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Hendra Kusuma', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-010', title: 'Revisi arsitektur database', assignee: 'Dewi Rahmawati', dueDate: '2024-03-25', status: 'overdue', priority: 'high' },
-      { id: 'ai-011', title: 'Performance testing production env', assignee: 'Reza Firmansyah', dueDate: '2024-04-01', status: 'open', priority: 'high' },
-      { id: 'ai-012', title: 'Dokumentasi API endpoint', assignee: 'Dewi Rahmawati', dueDate: '2024-04-05', status: 'open', priority: 'medium' },
+      { id: 'ai-010', title: 'Revisi arsitektur database', assignee: 'Dewi Rahmawati', dueDate: '2024-03-25', status: 'overdue', priority: 'high', required: true },
+      { id: 'ai-011', title: 'Performance testing production env', assignee: 'Reza Firmansyah', dueDate: '2024-04-01', status: 'open', priority: 'high', required: true },
+      { id: 'ai-012', title: 'Dokumentasi API endpoint', assignee: 'Dewi Rahmawati', dueDate: '2024-04-05', status: 'open', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd010', name: 'SRS Document', type: 'SRS', uploaded: true, required: true, uploadedAt: '2024-03-06' },
@@ -73,7 +75,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Rina Marlina', status: 'approved', reviewedAt: '2024-03-01' },
     ],
     actionItems: [
-      { id: 'ai-020', title: 'Setup monitoring alerts', assignee: 'Bagus Wicaksono', dueDate: '2024-03-15', status: 'completed', priority: 'high' },
+      { id: 'ai-020', title: 'Setup monitoring alerts', assignee: 'Bagus Wicaksono', dueDate: '2024-03-15', status: 'completed', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd020', name: 'Technical Design', type: 'SRS', uploaded: true, required: true, uploadedAt: '2024-01-25' },
@@ -100,7 +102,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Wahyu Hidayat', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-030', title: 'Load testing 10.000 concurrent users', assignee: 'Nina Susanti', dueDate: '2024-04-20', status: 'overdue', priority: 'high' },
+      { id: 'ai-030', title: 'Load testing 10.000 concurrent users', assignee: 'Nina Susanti', dueDate: '2024-04-20', status: 'overdue', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd030', name: 'BRD Document', type: 'BRD', uploaded: true, required: true, uploadedAt: '2024-04-02' },
@@ -121,7 +123,7 @@ export const INITIAL_APPS: Application[] = [
     category: 'HSE', vendor: 'Telkom Indonesia',
     reviewers: [],
     actionItems: [
-      { id: 'ai-040', title: 'Konfigurasi sensor IoT', assignee: 'Citra Lestari', dueDate: '2024-04-25', status: 'open', priority: 'medium' },
+      { id: 'ai-040', title: 'Konfigurasi sensor IoT', assignee: 'Citra Lestari', dueDate: '2024-04-25', status: 'open', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd040', name: 'Spesifikasi Teknis', type: 'SRS', uploaded: false, required: true },
@@ -145,7 +147,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Bambang Sutrisno', status: 'approved', reviewedAt: '2023-12-20' },
     ],
     actionItems: [
-      { id: 'ai-050', title: 'Integrasi dengan HR system', assignee: 'Yudi Hartono', dueDate: '2024-01-15', status: 'completed', priority: 'medium' },
+      { id: 'ai-050', title: 'Integrasi dengan HR system', assignee: 'Yudi Hartono', dueDate: '2024-01-15', status: 'completed', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd050', name: 'System Design Document', type: 'SRS', uploaded: true, required: true },
@@ -156,6 +158,8 @@ export const INITIAL_APPS: Application[] = [
       { id: 'h051', timestamp: '2024-01-20 10:00', user: 'Manager O&M', action: 'Handover diterima' },
     ],
     riskScore: 8,
+    beritaAcaraNumber: 'BA-HO/006/2024',
+    beritaAcaraGeneratedAt: '2024-01-20',
   },
   {
     id: 'app-007', name: 'Upstream Data Analytics Platform',
@@ -171,8 +175,8 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Slamet Riyadi', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-060', title: 'Data classification review', assignee: 'Anisa Putri', dueDate: '2024-04-10', status: 'overdue', priority: 'high' },
-      { id: 'ai-061', title: 'Security pentest environment cloud', assignee: 'Reza Firmansyah', dueDate: '2024-04-15', status: 'open', priority: 'high' },
+      { id: 'ai-060', title: 'Data classification review', assignee: 'Anisa Putri', dueDate: '2024-04-10', status: 'overdue', priority: 'high', required: true },
+      { id: 'ai-061', title: 'Security pentest environment cloud', assignee: 'Reza Firmansyah', dueDate: '2024-04-15', status: 'open', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd060', name: 'Architecture Design', type: 'Technical', uploaded: true, required: true },
@@ -207,6 +211,8 @@ export const INITIAL_APPS: Application[] = [
       { id: 'h071', timestamp: '2024-03-01 11:00', user: 'Manager O&M', action: 'Final approval diberikan' },
     ],
     riskScore: 10,
+    beritaAcaraNumber: 'BA-HO/008/2024',
+    beritaAcaraGeneratedAt: '2024-03-01',
   },
   {
     id: 'app-009', name: 'Enterprise Asset Management (EAM)',
@@ -222,8 +228,8 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Taufik Hidayatullah', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-080', title: 'Migrasi data dari sistem legacy', assignee: 'Ratna Sari', dueDate: '2024-05-01', status: 'open', priority: 'high' },
-      { id: 'ai-081', title: 'Konfigurasi workflow approval', assignee: 'Ratna Sari', dueDate: '2024-05-10', status: 'open', priority: 'medium' },
+      { id: 'ai-080', title: 'Migrasi data dari sistem legacy', assignee: 'Ratna Sari', dueDate: '2024-05-01', status: 'open', priority: 'high', required: true },
+      { id: 'ai-081', title: 'Konfigurasi workflow approval', assignee: 'Ratna Sari', dueDate: '2024-05-10', status: 'open', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd080', name: 'BRD Document', type: 'BRD', uploaded: true, required: true },
@@ -244,7 +250,7 @@ export const INITIAL_APPS: Application[] = [
     category: 'Operations', vendor: 'Honeywell Indonesia',
     reviewers: [],
     actionItems: [
-      { id: 'ai-090', title: 'OT security assessment', assignee: 'Eko Prasetyo', dueDate: '2024-05-15', status: 'open', priority: 'high' },
+      { id: 'ai-090', title: 'OT security assessment', assignee: 'Eko Prasetyo', dueDate: '2024-05-15', status: 'open', priority: 'high', required: true },
     ],
     documents: [],
     history: [
@@ -290,7 +296,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Dian Pertiwi', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-110', title: 'Review SLA cloud service provider', assignee: 'Rizky Maulana', dueDate: '2024-04-01', status: 'overdue', priority: 'medium' },
+      { id: 'ai-110', title: 'Review SLA cloud service provider', assignee: 'Rizky Maulana', dueDate: '2024-04-01', status: 'overdue', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd110', name: 'Architecture Document', type: 'Technical', uploaded: true, required: true },
@@ -324,6 +330,8 @@ export const INITIAL_APPS: Application[] = [
       { id: 'h121', timestamp: '2024-02-01 10:00', user: 'Manager O&M', action: 'Handover diterima' },
     ],
     riskScore: 5,
+    beritaAcaraNumber: 'BA-HO/013/2024',
+    beritaAcaraGeneratedAt: '2024-02-01',
   },
   {
     id: 'app-014', name: 'Safety Permit System (e-Permit)',
@@ -339,8 +347,8 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Agung Nugroho', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-130', title: 'Perbaikan vulnerability autentikasi', assignee: 'Dita Maharani', dueDate: '2024-03-30', status: 'overdue', priority: 'high' },
-      { id: 'ai-131', title: 'Penetration test ulang', assignee: 'Reza Firmansyah', dueDate: '2024-04-15', status: 'open', priority: 'high' },
+      { id: 'ai-130', title: 'Perbaikan vulnerability autentikasi', assignee: 'Dita Maharani', dueDate: '2024-03-30', status: 'overdue', priority: 'high', required: true },
+      { id: 'ai-131', title: 'Penetration test ulang', assignee: 'Reza Firmansyah', dueDate: '2024-04-15', status: 'open', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd130', name: 'Security Assessment', type: 'Security', uploaded: true, required: true },
@@ -382,7 +390,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Hendrik Purnama', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-150', title: 'Konfigurasi backup otomatis 3-2-1', assignee: 'Septia Wulandari', dueDate: '2024-04-10', status: 'overdue', priority: 'high' },
+      { id: 'ai-150', title: 'Konfigurasi backup otomatis 3-2-1', assignee: 'Septia Wulandari', dueDate: '2024-04-10', status: 'overdue', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd150', name: 'Data Architecture', type: 'Technical', uploaded: true, required: true },
@@ -415,6 +423,8 @@ export const INITIAL_APPS: Application[] = [
       { id: 'h161', timestamp: '2024-02-15 10:00', user: 'Manager O&M', action: 'Handover diterima' },
     ],
     riskScore: 7,
+    beritaAcaraNumber: 'BA-HO/017/2024',
+    beritaAcaraGeneratedAt: '2024-02-15',
   },
   {
     id: 'app-018', name: 'Drilling Operations Dashboard',
@@ -430,7 +440,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Guntur Santosa', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-170', title: 'Validasi format WITSML data feed', assignee: 'Nurul Hidayah', dueDate: '2024-04-20', status: 'open', priority: 'high' },
+      { id: 'ai-170', title: 'Validasi format WITSML data feed', assignee: 'Nurul Hidayah', dueDate: '2024-04-20', status: 'open', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd170', name: 'Integration Spec WITSML', type: 'Technical', uploaded: true, required: true },
@@ -477,7 +487,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Widodo Prasetyo', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-190', title: 'Mapping regulasi SKK Migas terbaru', assignee: 'Yeni Rahayu', dueDate: '2024-04-20', status: 'open', priority: 'medium' },
+      { id: 'ai-190', title: 'Mapping regulasi SKK Migas terbaru', assignee: 'Yeni Rahayu', dueDate: '2024-04-20', status: 'open', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd190', name: 'Compliance Matrix', type: 'BRD', uploaded: true, required: true },
@@ -501,7 +511,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Arif Wibawa', status: 'approved', reviewedAt: '2024-04-03' },
     ],
     actionItems: [
-      { id: 'ai-200', title: 'UAT di lapangan Madura', assignee: 'Sinta Dewi', dueDate: '2024-04-15', status: 'open', priority: 'medium' },
+      { id: 'ai-200', title: 'UAT di lapangan Madura', assignee: 'Sinta Dewi', dueDate: '2024-04-15', status: 'open', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd200', name: 'Mobile App Design', type: 'Technical', uploaded: true, required: true },
@@ -526,7 +536,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Basuki Rahmad', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-210', title: 'Redesign arsitektur HA/DR', assignee: 'Wulandari Sari', dueDate: '2024-03-25', status: 'overdue', priority: 'high' },
+      { id: 'ai-210', title: 'Redesign arsitektur HA/DR', assignee: 'Wulandari Sari', dueDate: '2024-03-25', status: 'overdue', priority: 'high', required: true },
     ],
     documents: [
       { id: 'd210', name: 'HA/DR Architecture', type: 'DRP', uploaded: true, required: true },
@@ -577,6 +587,8 @@ export const INITIAL_APPS: Application[] = [
       { id: 'h231', timestamp: '2024-01-01 10:00', user: 'Manager O&M', action: 'Handover diterima' },
     ],
     riskScore: 3,
+    beritaAcaraNumber: 'BA-HO/024/2024',
+    beritaAcaraGeneratedAt: '2024-01-01',
   },
   {
     id: 'app-025', name: 'Document Management System (eDMS)',
@@ -592,7 +604,7 @@ export const INITIAL_APPS: Application[] = [
       { role: 'Business Owner', name: 'Suparno Wibowo', status: 'pending' },
     ],
     actionItems: [
-      { id: 'ai-240', title: 'Klasifikasi dokumen sensitif', assignee: 'Ratih Kusumawati', dueDate: '2024-04-15', status: 'open', priority: 'medium' },
+      { id: 'ai-240', title: 'Klasifikasi dokumen sensitif', assignee: 'Ratih Kusumawati', dueDate: '2024-04-15', status: 'open', priority: 'medium', required: false },
     ],
     documents: [
       { id: 'd240', name: 'System Architecture', type: 'Technical', uploaded: true, required: true },

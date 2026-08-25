@@ -19,10 +19,12 @@ import {
   AlertTriangle,
   TrendingUp,
   ChevronRight,
+  Flame,
 } from "lucide-react";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
+import GoLiveCountdown from "../components/ui/GoLiveCountdown";
 import {
   SkeletonKPICards,
   SkeletonChartCard,
@@ -426,16 +428,17 @@ export default function Dashboard({
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Attention table */}
+        {/* Attention cards — ala ITSM "Needs Attention": kartu + countdown live, bukan tabel statis */}
         <div className="xl:col-span-2">
           <Card padding={false}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                  <Flame size={14} className="text-red-500" />
                   Aplikasi Perlu Perhatian
                 </h3>
                 <p className="text-xs text-gray-400">
-                  Status bermasalah atau overdue
+                  Risiko tinggi, ditolak, atau punya action item overdue
                 </p>
               </div>
               <button
@@ -445,72 +448,79 @@ export default function Dashboard({
                 Lihat semua <ChevronRight size={12} />
               </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left text-xs font-medium text-gray-500 px-5 py-2.5">
-                      Aplikasi
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 px-3 py-2.5">
-                      PIC Project
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 px-3 py-2.5">
-                      Status
-                    </th>
-                    <th className="text-right text-xs font-medium text-gray-500 px-5 py-2.5">
-                      Overdue
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 px-3 py-2.5">
-                      Kritikal
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attentionApps.map((app) => (
-                    <tr
-                      key={app.id}
-                      onClick={() => onNavigate("app-detail", app.id)}
-                      className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
-                    >
-                      <td className="px-5 py-3 font-medium text-gray-900 text-sm max-w-[220px] truncate">
-                        {app.name}
-                      </td>
-                      <td className="px-3 py-3 text-gray-500 text-xs">
-                        {app.pic}
-                      </td>
-                      <td className="px-3 py-3">
-                        <Badge
-                          variant={
-                            app.status.toLowerCase().replace(/\s+/g, "") as any
-                          }
-                        >
-                          {app.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3 text-right font-mono text-xs text-red-600 font-medium">
-                        {app.actionItems.filter((ai) => ai.status === "overdue")
-                          .length || "—"}
-                      </td>
-                      <td className="px-3 py-3">
-                        <Badge variant={app.criticality.toLowerCase() as any}>
-                          {app.criticality}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                  {attentionApps.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-5 py-8 text-center text-gray-400 text-xs"
+
+            <div className="p-4">
+              {attentionApps.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {attentionApps.map((app) => {
+                    const overdueCount = app.actionItems.filter(
+                      (ai) => ai.status === "overdue",
+                    ).length;
+                    return (
+                      <button
+                        key={app.id}
+                        onClick={() => onNavigate("app-detail", app.id)}
+                        className={`text-left rounded-xl border p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${
+                          overdueCount > 0
+                            ? "border-red-200 bg-red-50/30"
+                            : "border-gray-200 bg-white"
+                        }`}
                       >
-                        Tidak ada aplikasi yang butuh perhatian saat ini
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                        <div className="flex items-start justify-between gap-2 mb-2.5">
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900 text-sm truncate">
+                              {app.name}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {app.pic}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={
+                              app.status
+                                .toLowerCase()
+                                .replace(/\s+/g, "") as any
+                            }
+                          >
+                            {app.status}
+                          </Badge>
+                        </div>
+
+                        <GoLiveCountdown
+                          goLiveDate={app.goLiveDate}
+                          className="mb-2.5"
+                        />
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant={app.criticality.toLowerCase() as any}>
+                            {app.criticality}
+                          </Badge>
+                          {overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                              <AlertTriangle size={11} /> {overdueCount} overdue
+                            </span>
+                          )}
+                          <span
+                            className={`ml-auto text-xs font-bold font-mono flex-shrink-0 ${
+                              app.riskScore >= 70
+                                ? "text-red-600"
+                                : app.riskScore >= 50
+                                  ? "text-amber-600"
+                                  : "text-gray-400"
+                            }`}
+                          >
+                            Risk {app.riskScore}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="px-1 py-8 text-center text-gray-400 text-xs">
+                  Tidak ada aplikasi yang butuh perhatian saat ini
+                </p>
+              )}
             </div>
           </Card>
         </div>

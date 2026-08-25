@@ -6,6 +6,7 @@ import {
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import DueDateTimer from '../components/ui/DueDateTimer'
 import { Modal } from '../components/ui/Modal'
 import type { AppState, Application, AppStatus, Criticality, Role } from '../types'
 import type { Page } from '../App'
@@ -361,7 +362,11 @@ PT PERTAMINA`
                     <input type="checkbox" checked={ai.status === 'completed'} onChange={() => toggleActionStatus(ai)} className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{ai.title}</div>
-                      <div className="text-xs text-gray-500">{ai.assignee} • Due: {ai.dueDate}</div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-xs text-gray-500">{ai.assignee}</span>
+                        <span className="text-gray-300 text-xs">•</span>
+                        <DueDateTimer dueDate={ai.dueDate} status={ai.status} />
+                      </div>
                     </div>
                     {ai.required && <Badge variant="rejected">WAJIB</Badge>}
                     <Badge variant={aiStatusVariant(ai.status)}>{aiStatusLabel(ai.status)}</Badge>

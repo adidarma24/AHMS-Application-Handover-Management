@@ -67,6 +67,17 @@ body {
 
 .table-row:hover { background: #f8fafc; }
 
+/* Efek "pop" singkat saat skor risiko live di HandoverForm berubah nilai —
+   memberi sinyal visual bahwa angka ini dihitung ulang otomatis, bukan statis. */
+@keyframes risk-pop {
+  0% { transform: scale(0.92); opacity: 0.5; }
+  60% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-risk-pop {
+  animation: risk-pop 0.28s ease-out;
+}
+
 input, select, textarea {
   font-family: 'Inter', sans-serif;
 }

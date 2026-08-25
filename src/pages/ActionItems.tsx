@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { AlertTriangle, Clock, CheckCircle, ChevronRight } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
+import DueDateTimer from '../components/ui/DueDateTimer'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
 
@@ -140,8 +141,8 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
                     </button>
                   </td>
                   <td className="px-3 py-3 text-xs text-gray-600">{ai.assignee}</td>
-                  <td className={`px-3 py-3 text-xs whitespace-nowrap ${ai.status === 'overdue' ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
-                    {ai.dueDate}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <DueDateTimer dueDate={ai.dueDate} status={ai.status} />
                   </td>
                   <td className="px-3 py-3">
                     <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>

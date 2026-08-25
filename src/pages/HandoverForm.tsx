@@ -3,16 +3,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Upload,
-  Loader2,
   FileCheck2,
   X,
   CheckCircle2,
-  ClipboardCheck,
   Info,
 } from 'lucide-react'
 import type { AppState, Application, Criticality, Role } from '../types'
 import type { Page } from '../App'
-import { INITIAL_CHECKLIST_ITEMS } from '../data'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -24,13 +21,14 @@ interface Props {
   onAddApp: (app: Application) => void
 }
 
-type UploadStatus = 'uploading' | 'done'
+type UploadStatus = 'done'
 interface UploadState {
   file: File
   status: UploadStatus
+  uploadedAt: string
 }
 
-const STEP_LABELS = ['Data Aplikasi', 'Upload Dokumen', 'Checklist', 'Ringkasan']
+const STEP_LABELS = ['Data Aplikasi', 'Upload Dokumen', 'Ringkasan']
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ACCEPTED_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.zip,.png,.jpg,.jpeg'
 
@@ -52,6 +50,28 @@ const inputCls = (err?: string) =>
   `w-full px-3 py-2 rounded-lg border text-sm text-gray-900 bg-white outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-colors ${
     err ? 'border-red-400' : 'border-gray-300'
   }`
+
+// Skor risiko dihitung otomatis dari kritikalitas (bobot dasar) + urgensi tanggal go-live
+// (mirip matrix Impact x Urgency), sehingga PM langsung melihat estimasi risiko saat mengisi form
+// alih-alih baru diketahui setelah submit.
+function calculateRiskScore(criticality: Criticality, goLiveDate: string) {
+  const base: Record<Criticality, number> = { Critical: 55, High: 40, Medium: 22, Low: 10 }
+  let score = base[criticality]
+  if (goLiveDate) {
+    const days = Math.ceil((new Date(goLiveDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    if (days < 0) score += 30
+    else if (days <= 7) score += 25
+    else if (days <= 30) score += 15
+    else if (days <= 90) score += 5
+  }
+  return Math.max(0, Math.min(100, score))
+}
+
+function riskMeta(score: number) {
+  if (score >= 70) return { label: 'Tinggi', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', dot: '#dc2626' }
+  if (score >= 40) return { label: 'Sedang', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', dot: '#d97706' }
+  return { label: 'Rendah', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: '#16A34A' }
+}
 
 export default function HandoverForm({ appState, currentUser, onNavigate, onAddApp }: Props) {
   const [step, setStep] = useState(0)
@@ -99,18 +119,11 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
 
-  // Checklist dibedakan berdasarkan KATEGORI dan KRITIKALITAS aplikasi
-  // (Kebutuhan Fungsional #3). Item tanpa `category` berlaku untuk semua kategori.
-  const checklistItems = useMemo(
-    () => INITIAL_CHECKLIST_ITEMS.filter(ci =>
-      ci.criticality.includes(form.criticality) &&
-      (!ci.category || ci.category.length === 0 || ci.category.includes(form.category))
-    ),
-    [form.criticality, form.category],
-  )
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
-
   const f = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
+
+  // Live preview — ikut berubah setiap kali kritikalitas atau target go-live diubah
+  const riskScore = useMemo(() => calculateRiskScore(form.criticality, form.goLiveDate), [form.criticality, form.goLiveDate])
+  const risk = riskMeta(riskScore)
 
   // Daftar PIC O&M diambil dari user aktif dengan role O&M Application Support,
   // supaya assignment reviewer O&M mengikuti input PM, bukan nilai statis.
@@ -138,7 +151,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     setStep(s => s + 1)
   }
 
-  // Simulasi upload dokumen sungguhan: pilih file -> status "uploading" (spinner) -> "done"
+  // Klik pilih file -> langsung terupload, tanpa delay/spinner simulasi.
   function handleFileSelect(docId: string, files: FileList | null) {
     const file = files?.[0]
     if (!file) return
@@ -153,12 +166,9 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
       return next
     })
 
-    setUploads(prev => ({ ...prev, [docId]: { file, status: 'uploading' } }))
-
-    const delay = 500 + Math.random() * 700
-    window.setTimeout(() => {
-      setUploads(prev => (prev[docId]?.file === file ? { ...prev, [docId]: { file, status: 'done' } } : prev))
-    }, delay)
+    const now = new Date()
+    const uploadedAt = `${now.toTimeString().slice(0, 5)}`
+    setUploads(prev => ({ ...prev, [docId]: { file, status: 'done', uploadedAt } }))
   }
 
   function removeUpload(docId: string) {
@@ -174,13 +184,19 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     [docTypes, uploads],
   )
 
+  // Dipisah wajib/opsional supaya PM langsung fokus ke dokumen yang memblokir step berikutnya.
+  const requiredDocs = useMemo(() => docTypes.filter(d => d.required), [docTypes])
+  const optionalDocs = useMemo(() => docTypes.filter(d => !d.required), [docTypes])
+  const uploadedCount = useMemo(() => docTypes.filter(d => uploads[d.id]?.status === 'done').length, [docTypes, uploads])
+  const uploadedRequiredCount = useMemo(() => requiredDocs.filter(d => uploads[d.id]?.status === 'done').length, [requiredDocs, uploads])
+  const requiredProgressPct = requiredDocs.length > 0 ? Math.round((uploadedRequiredCount / requiredDocs.length) * 100) : 100
+
   function resetForm() {
     setStep(0)
     setSubmitted(false)
     setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, picOM: '', goLiveDate: '', technology: '', environment: '', category: '', vendor: '' })
     setUploads({})
     setUploadErrors({})
-    setCheckedItems({})
   }
 
   function handleSubmit() {
@@ -215,10 +231,82 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
       history: [
         { id: `h-${Date.now()}`, timestamp: `${now} ${new Date().toTimeString().slice(0, 5)}`, user: currentUser.name, action: 'Pengajuan handover dibuat dan dikirim ke O&M' },
       ],
-      riskScore: form.criticality === 'Critical' ? 40 : form.criticality === 'High' ? 25 : 15,
+      riskScore,
     }
     onAddApp(newApp)
     setSubmitted(true)
+  }
+
+  // Satu kartu dokumen dipakai ulang untuk grup Wajib maupun Opsional.
+  // Klik area kartu (belum ada file) -> file picker terbuka -> pilih file -> langsung "done", tanpa spinner.
+  function renderDocCard(doc: { id: string; name: string; required: boolean }) {
+    const upload = uploads[doc.id]
+    const done = upload?.status === 'done'
+    const error = uploadErrors[doc.id]
+    const inputId = `upload-${doc.id}`
+
+    return (
+      <div
+        key={doc.id}
+        className={`rounded-lg border transition-colors duration-200 ${
+          done ? 'border-emerald-200 bg-emerald-50/50' :
+          error ? 'border-red-300 bg-red-50/40' :
+          'border-gray-200 bg-white hover:border-indigo-200'
+        }`}
+      >
+        {!done && (
+          <label htmlFor={inputId} className="flex items-center gap-3 px-3.5 py-3 cursor-pointer rounded-lg">
+            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <Upload size={16} className="text-gray-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-gray-900 flex items-center gap-1.5 flex-wrap">
+                {doc.name}
+                {doc.required && <Badge variant="rejected">WAJIB</Badge>}
+              </div>
+              <div className={`text-xs mt-0.5 ${error ? 'text-red-600' : 'text-gray-400'}`}>
+                {error || 'Klik untuk pilih file (PDF, DOC, XLS, ZIP — maks 10MB)'}
+              </div>
+            </div>
+          </label>
+        )}
+
+        {done && (
+          <div key={upload!.uploadedAt} className="flex items-center gap-3 px-3.5 py-3 animate-risk-pop">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <FileCheck2 size={16} className="text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-gray-900 flex items-center gap-1.5 flex-wrap">
+                {doc.name}
+                {doc.required && <Badge variant="rejected">WAJIB</Badge>}
+              </div>
+              <div className="text-xs text-gray-400 mt-0.5 truncate">
+                {upload!.file.name} • {formatFileSize(upload!.file.size)} • {upload!.uploadedAt}
+              </div>
+            </div>
+            <label htmlFor={inputId} className="text-xs text-indigo-600 hover:underline cursor-pointer flex-shrink-0">
+              Ganti
+            </label>
+            <button
+              type="button"
+              onClick={() => removeUpload(doc.id)}
+              className="text-gray-400 hover:text-red-500 flex-shrink-0 p-1"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        <input
+          id={inputId}
+          type="file"
+          className="hidden"
+          accept={ACCEPTED_TYPES}
+          onChange={e => { handleFileSelect(doc.id, e.target.files); e.target.value = '' }}
+        />
+      </div>
+    )
   }
 
   if (submitted) {
@@ -291,7 +379,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                   {(['Critical', 'High', 'Medium', 'Low'] as Criticality[]).map(c => <option key={c}>{c}</option>)}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {form.criticality === 'Critical' ? '⚠️ Kritis: checklist & persyaratan paling ketat' :
+                  {form.criticality === 'Critical' ? '⚠️ Kritis: dokumen & persyaratan paling ketat' :
                    form.criticality === 'High' ? '🔶 Tinggi: persyaratan security & DRP wajib' :
                    form.criticality === 'Medium' ? '🔷 Sedang: persyaratan standar' : '🔹 Rendah: persyaratan minimal'}
                 </p>
@@ -338,98 +426,82 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                   {appState.environments.map(env => <option key={env.id} value={env.name}>{env.name}</option>)}
                 </select>
               </Field>
+
+              {/* Skor risiko otomatis — live, ikut berubah saat kritikalitas / go-live diedit */}
+              <div className="md:col-span-2">
+                <div className={`flex items-center justify-between gap-3 rounded-lg border px-3.5 py-2.5 transition-colors duration-300 ${risk.bg} ${risk.border}`}>
+                  <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                    <Info size={14} className="text-gray-400 flex-shrink-0" />
+                    Estimasi Skor Risiko (otomatis)
+                  </span>
+                  <span
+                    key={riskScore}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border bg-white animate-risk-pop ${risk.color} ${risk.border}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: risk.dot }} />
+                    {riskScore} — Risiko {risk.label}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">
+                  Dihitung dari tingkat kritikalitas dan urgensi tanggal go-live (mirip skema Impact × Urgency). Skor final tetap dapat disesuaikan tim O&M saat review.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Step 1: Upload Dokumen — simulasi upload file sungguhan */}
+        {/* Step 1: Upload Dokumen — pilih file langsung terupload (tanpa delay/spinner) */}
         {step === 1 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-5">Step 2: Upload Dokumen</h3>
-            <div className="flex flex-col gap-2.5">
-              {docTypes.map(doc => {
-                const upload = uploads[doc.id]
-                const status = upload?.status
-                const inputId = `upload-${doc.id}`
-                return (
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Step 2: Upload Dokumen</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {uploadedCount} dari {docTypes.length} dokumen terupload
+                </p>
+              </div>
+              <div className="w-40 flex-shrink-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-gray-500">Dokumen Wajib</span>
+                  <span className={`text-[11px] font-bold ${requiredDocsUploaded ? 'text-emerald-600' : 'text-gray-500'}`}>
+                    {uploadedRequiredCount}/{requiredDocs.length}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
                   <div
-                    key={doc.id}
-                    className={`rounded-lg border transition-colors ${
-                      status === 'done' ? 'border-emerald-200 bg-emerald-50/50' :
-                      status === 'uploading' ? 'border-indigo-200 bg-indigo-50/40' :
-                      uploadErrors[doc.id] ? 'border-red-300 bg-red-50/40' :
-                      'border-gray-200 bg-white'
-                    }`}
-                  >
-                    {!status && (
-                      <label htmlFor={inputId} className="flex items-center gap-3 px-4 py-3 cursor-pointer rounded-lg hover:bg-gray-50 transition-colors">
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <Upload size={16} className="text-gray-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-gray-900 flex items-center gap-1.5 flex-wrap">
-                            {doc.name}
-                            {doc.required && <Badge variant="rejected">WAJIB</Badge>}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {uploadErrors[doc.id] || 'Klik untuk pilih file (PDF, DOC, XLS, ZIP — maks 10MB)'}
-                          </div>
-                        </div>
-                      </label>
-                    )}
-
-                    {status === 'uploading' && (
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <Loader2 size={16} className="text-indigo-600 animate-spin" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-gray-900 truncate">{upload!.file.name}</div>
-                          <div className="text-xs text-indigo-500 mt-0.5">Mengupload...</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {status === 'done' && (
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                          <FileCheck2 size={16} className="text-emerald-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-gray-900 flex items-center gap-1.5 flex-wrap">
-                            {doc.name}
-                            {doc.required && <Badge variant="rejected">WAJIB</Badge>}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-0.5 truncate">
-                            {upload!.file.name} • {formatFileSize(upload!.file.size)}
-                          </div>
-                        </div>
-                        <label htmlFor={inputId} className="text-xs text-indigo-600 hover:underline cursor-pointer flex-shrink-0">
-                          Ganti
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => removeUpload(doc.id)}
-                          className="text-gray-400 hover:text-red-500 flex-shrink-0 p-1"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    )}
-
-                    <input
-                      id={inputId}
-                      type="file"
-                      className="hidden"
-                      accept={ACCEPTED_TYPES}
-                      onChange={e => { handleFileSelect(doc.id, e.target.files); e.target.value = '' }}
-                    />
-                  </div>
-                )
-              })}
+                    className={`h-full rounded-full transition-all duration-500 ${requiredDocsUploaded ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                    style={{ width: `${requiredProgressPct}%` }}
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Grup Wajib */}
+            <div className="mb-5">
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Dokumen Wajib</span>
+                <span className="h-px flex-1 bg-gray-100" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {requiredDocs.map(doc => renderDocCard(doc))}
+              </div>
+            </div>
+
+            {/* Grup Opsional */}
+            {optionalDocs.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Dokumen Opsional</span>
+                  <span className="h-px flex-1 bg-gray-100" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {optionalDocs.map(doc => renderDocCard(doc))}
+                </div>
+              </div>
+            )}
+
             {!requiredDocsUploaded && (
-              <p className="flex items-start gap-2 text-xs text-amber-700 mt-3 px-3 py-2 bg-amber-50 rounded-lg">
+              <p className="flex items-start gap-2 text-xs text-amber-700 mt-4 px-3 py-2 bg-amber-50 rounded-lg">
                 <Info size={13} className="flex-shrink-0 mt-0.5" />
                 Upload semua dokumen bertanda WAJIB untuk melanjutkan ke step berikutnya.
               </p>
@@ -437,47 +509,15 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
           </div>
         )}
 
-        {/* Step 2: Checklist */}
+        {/* Step 2: Ringkasan */}
         {step === 2 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Step 3: Checklist Readiness</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Checklist di bawah disesuaikan dengan kategori <strong>{form.category || 'Umum'}</strong> dan kritikalitas <strong>{form.criticality}</strong> ({checklistItems.length} item)
-            </p>
-            <div className="flex flex-col gap-2">
-              {checklistItems.map(item => (
-                <label
-                  key={item.id}
-                  className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg border cursor-pointer transition-colors ${
-                    checkedItems[item.id] ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checkedItems[item.id] || false}
-                    onChange={e => setCheckedItems(prev => ({ ...prev, [item.id]: e.target.checked }))}
-                    className="mt-0.5 flex-shrink-0 accent-indigo-600"
-                  />
-                  <span className="text-sm text-gray-900 flex-1">{item.text}</span>
-                  {item.required && <Badge variant="rejected">WAJIB</Badge>}
-                </label>
-              ))}
-            </div>
-            <div className="mt-3.5 px-3.5 py-2.5 bg-gray-50 rounded-lg text-xs text-gray-700 flex items-center gap-1.5">
-              <ClipboardCheck size={13} className="text-gray-400" />
-              {Object.values(checkedItems).filter(Boolean).length} dari {checklistItems.length} item telah dicentang
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Ringkasan */}
-        {step === 3 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Step 4: Ringkasan Pengajuan</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Step 3: Ringkasan Pengajuan</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3 bg-gray-50 rounded-lg p-4 mb-5">
               {[
                 ['Nama Aplikasi', form.name],
                 ['Kritikalitas', form.criticality],
+                ['Skor Risiko (otomatis)', `${riskScore} — Risiko ${risk.label}`],
                 ['Business Owner', form.businessOwner],
                 ['PIC Project', form.pic],
                 ['PIC O&M', form.picOM],
@@ -501,12 +541,6 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                   {docTypes.filter(d => uploads[d.id]?.status === 'done').length} dari {docTypes.length} dokumen
                 </div>
               </div>
-              <div className="col-span-2">
-                <div className="text-xs text-gray-500 font-medium">Checklist Readiness</div>
-                <div className="text-sm text-gray-900">
-                  {Object.values(checkedItems).filter(Boolean).length} dari {checklistItems.length} item tercentang
-                </div>
-              </div>
             </div>
             <p className="flex items-start gap-2 px-3.5 py-3 bg-blue-50 rounded-lg text-sm text-blue-800">
               <Info size={15} className="flex-shrink-0 mt-0.5" />
@@ -520,7 +554,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
           <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0}>
             <ChevronLeft size={14} /> Kembali
           </Button>
-          {step < 3 ? (
+          {step < 2 ? (
             <Button onClick={nextStep} disabled={step === 1 && !requiredDocsUploaded}>
               Lanjut <ChevronRight size={14} />
             </Button>

@@ -20,7 +20,7 @@ export default function InstallCard() {
   if (installed) {
     return (
       <Card className="flex items-center gap-3">
-        <CheckCircle2 size={18} className="text-emerald-500 flex-shrink-0" />
+        <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
         <p className="text-sm text-gray-600">Aplikasi berjalan dalam mode terpasang (PWA).</p>
       </Card>
     )
@@ -29,7 +29,7 @@ export default function InstallCard() {
   return (
     <Card>
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-navy-900 flex items-center justify-center flex-shrink-0" style={{ background: '#1B3A6B' }}>
+        <div className="w-9 h-9 rounded-lg bg-navy-900 flex items-center justify-center shrink-0" style={{ background: '#1B3A6B' }}>
           <Smartphone size={16} className="text-white" />
         </div>
         <div className="min-w-0 flex-1">

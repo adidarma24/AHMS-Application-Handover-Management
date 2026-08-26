@@ -22,20 +22,32 @@ export function initPwa() {
     listeners.forEach((fn) => fn(false))
   })
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      // Pakai import.meta.env.BASE_URL (bukan '/service-worker.js' hardcoded)
-      // supaya tetap resolve dengan benar kalau app di-deploy ke subpath
-      // (lihat `base` di vite.config.ts yang mengikuti FIGMA_PUBLIC_URL).
-      const swUrl = `${import.meta.env.BASE_URL}service-worker.js`
-      navigator.serviceWorker.register(swUrl).catch(() => {})
-    })
+    // Pakai import.meta.env.BASE_URL (bukan '/service-worker.js' hardcoded)
+    // supaya tetap resolve dengan benar kalau app di-deploy ke subpath
+    // (lihat `base` di vite.config.ts yang mengikuti FIGMA_PUBLIC_URL).
+    const swUrl = `${import.meta.env.BASE_URL}service-worker.js`
+    const registerSw = () => navigator.serviceWorker.register(swUrl).catch(() => {})
+
+    // Jika event 'load' sudah keburu terjadi sebelum baris ini dieksekusi
+    // (mis. script module ini telat jalan karena network lambat/cache
+    // dimatikan), addEventListener('load', ...) TIDAK AKAN PERNAH terpanggil
+    // — event yang sudah lewat tidak "diputar ulang". Makanya cek
+    // document.readyState dulu: kalau sudah 'complete', daftar SW langsung;
+    // kalau belum, baru menunggu event 'load' seperti biasa.
+    if (document.readyState === 'complete') {
+      registerSw()
+    } else {
+      window.addEventListener('load', registerSw)
+    }
   }
 }
 
 export function onInstallable(fn: (installable: boolean) => void) {
   listeners.add(fn)
   fn(!!deferredPrompt)
-  return () => listeners.delete(fn)
+  return () => {
+    listeners.delete(fn)
+  }
 }
 
 export async function promptInstall(): Promise<boolean> {

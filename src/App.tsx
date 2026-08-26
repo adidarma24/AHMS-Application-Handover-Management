@@ -13,6 +13,7 @@ import Reports from "./pages/Reports";
 import MasterData from "./pages/MasterData";
 import ActionItems from "./pages/ActionItems";
 import Documents from "./pages/Documents";
+import Profile from "./pages/Profile";
 import AIAssistant from "./components/AIAssistant";
 
 export type Page =
@@ -24,7 +25,8 @@ export type Page =
   | "reports"
   | "master-data"
   | "action-items"
-  | "documents";
+  | "documents"
+  | "profile";
 
 export default function App() {
   const { currentUser, login, logout } = useAuth();
@@ -148,6 +150,14 @@ export default function App() {
             appState={appState}
             currentUser={currentUser!}
             onNavigate={navigate}
+          />
+        );
+      case "profile":
+        return (
+          <Profile
+            appState={appState}
+            currentUser={currentUser!}
+            onLogout={handleLogout}
           />
         );
       default:

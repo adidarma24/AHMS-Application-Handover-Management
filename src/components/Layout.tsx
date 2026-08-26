@@ -167,6 +167,14 @@ export default function Layout({
     item.roles.includes(currentUser.role),
   );
 
+  // Bottom nav mobile dibatasi 5 slot: 4 menu utama sesuai role + Profil.
+  // Menu selebihnya (mis. Laporan, Master Data) tetap bisa diakses lewat
+  // sidebar saat layar desktop.
+  const bottomNavItems: NavItem[] = [
+    ...visibleItems.slice(0, 4),
+    { id: "profile", label: "Profil", icon: User, roles: [] },
+  ];
+
   // Menghitung inisial nama (Misal: "Ahmad Maulana" -> "AM")
   const userInitials = currentUser.name
     .split(" ")
@@ -261,9 +269,9 @@ export default function Layout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ================= SIDEBAR ================= */}
+      {/* ================= SIDEBAR (DESKTOP) ================= */}
       <aside
-        className="fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex flex-col z-30 transition-all duration-200"
+        className="hidden lg:flex fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex-col z-30 transition-all duration-200"
         style={{ width: collapsed ? 56 : 240 }}
       >
         {/* Logo */}
@@ -322,11 +330,21 @@ export default function Layout({
 
       {/* ================= TOPBAR ================= */}
       <header
-        className="fixed top-0 right-0 h-14 bg-white border-b border-gray-200 flex items-center px-5 gap-4 z-20 transition-all duration-200"
-        style={{ left: collapsed ? 56 : 240 }}
+        className={`fixed top-0 right-0 left-0 h-14 bg-white border-b border-gray-200 flex items-center px-3 sm:px-5 gap-3 sm:gap-4 z-20 transition-all duration-200 ${collapsed ? "lg:left-14" : "lg:left-60"}`}
       >
+        {/* Brand — cuma tampil di mobile, karena versi desktop sudah ada di sidebar */}
+        <button
+          onClick={() => onNavigate("dashboard")}
+          className="lg:hidden flex items-center gap-2 flex-shrink-0"
+        >
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+            <Zap size={14} className="text-white" />
+          </div>
+          <span className="text-sm font-bold text-gray-900">AHMS</span>
+        </button>
+
         {/* Search — cari aplikasi (nama/PIC/BO/teknologi) & dokumen, hasil tampil sebagai dropdown */}
-        <div className="flex-1 max-w-sm relative" ref={searchRef}>
+        <div className="hidden sm:block flex-1 max-w-sm relative" ref={searchRef}>
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
@@ -526,7 +544,10 @@ export default function Layout({
                   {currentUser.email}
                 </div>
               </div>
-              <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors">
+              <button
+                onClick={() => { onNavigate("profile"); setShowProfile(false) }}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
                 <User size={14} className="text-gray-400" /> Profil Saya
               </button>
               <hr className="my-1 border-gray-100" />
@@ -544,11 +565,29 @@ export default function Layout({
 
       {/* ================= MAIN CONTENT ================= */}
       <main
-        className="transition-all duration-200 pt-14 h-screen flex flex-col"
-        style={{ paddingLeft: collapsed ? 56 : 240 }}
+        className={`transition-all duration-200 pt-14 h-screen flex flex-col pl-0 ${collapsed ? "lg:pl-14" : "lg:pl-60"}`}
       >
-        <div className="p-6 overflow-y-auto flex-1">{children}</div>
+        <div className="p-4 sm:p-6 pb-24 lg:pb-6 overflow-y-auto flex-1">{children}</div>
       </main>
+
+      {/* ================= BOTTOM NAV (MOBILE) ================= */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 grid grid-cols-5 items-stretch px-1 pb-[env(safe-area-inset-bottom)]">
+        {bottomNavItems.map((item) => {
+          const active = currentPage === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
+              className="relative flex flex-col items-center justify-center py-2 gap-0.5 min-w-0"
+            >
+              <item.icon size={20} className={active ? "text-indigo-600" : "text-gray-400"} />
+              <span className={`text-[10px] font-medium truncate max-w-full px-0.5 ${active ? "text-indigo-600" : "text-gray-400"}`}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* ================= MODAL: SEMUA NOTIFIKASI ================= */}
       <Modal

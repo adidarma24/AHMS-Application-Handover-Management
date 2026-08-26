@@ -23,7 +23,11 @@ export function initPwa() {
   })
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch(() => {})
+      // Pakai import.meta.env.BASE_URL (bukan '/service-worker.js' hardcoded)
+      // supaya tetap resolve dengan benar kalau app di-deploy ke subpath
+      // (lihat `base` di vite.config.ts yang mengikuti FIGMA_PUBLIC_URL).
+      const swUrl = `${import.meta.env.BASE_URL}service-worker.js`
+      navigator.serviceWorker.register(swUrl).catch(() => {})
     })
   }
 }

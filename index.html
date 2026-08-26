@@ -10,10 +10,13 @@
     <meta property="og:title" content="AHMS - Application Handover Management System v2">
     <meta property="og:description" content="Streamline application handover processes for energy sector enterprises with role-based dashboards, real-time updates, and comprehensive analytics.">
 
-    <link rel="manifest" href="/manifest.json" />
+    <!-- Path manifest/icon SENGAJA tanpa '/' di depan (relatif), supaya Vite
+         otomatis menyesuaikan kalau `base` di vite.config.ts bukan root
+         (mis. saat deploy ke subpath lewat FIGMA_PUBLIC_URL). -->
+    <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#1B3A6B" />
-    <link rel="icon" href="/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AHMS" />

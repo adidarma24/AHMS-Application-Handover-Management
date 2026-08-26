@@ -3,9 +3,15 @@
 // tetap bisa dibuka (walau data tidak update) saat koneksi hilang.
 // Tidak melakukan caching agresif ke request API/data supaya PIC/Reviewer
 // selalu lihat data terbaru saat online.
+//
+// BASE dihitung dari lokasi file ini sendiri (self.location), bukan
+// hardcoded "/", supaya tetap benar kalau app di-deploy ke subpath
+// (mis. lewat FIGMA_PUBLIC_URL di vite.config.ts). File statis di public/
+// tidak diproses Vite jadi tidak bisa pakai import.meta.env di sini.
+const BASE = new URL(".", self.location).pathname;
 
 const CACHE_NAME = "ahms-shell-v1";
-const SHELL_ASSETS = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+const SHELL_ASSETS = [BASE, `${BASE}manifest.json`, `${BASE}icon-192.png`, `${BASE}icon-512.png`];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -33,6 +39,6 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/")))
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match(BASE)))
   );
 });

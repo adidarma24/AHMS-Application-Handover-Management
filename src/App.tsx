@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { INITIAL_STATE } from "./data";
 import type { AppState, Application, Role } from "./types";
+import { useAuth } from "./context/AuthContext";
 import Login from "./components/Login";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -25,14 +26,8 @@ export type Page =
   | "action-items"
   | "documents";
 
-interface CurrentUser {
-  name: string;
-  role: Role;
-  email: string;
-}
-
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const { currentUser, login, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [appState, setAppState] = useState<AppState>(INITIAL_STATE);
@@ -66,11 +61,11 @@ export default function App() {
     const user = appState.users.find((u) => u.name === name);
     setCurrentPage("dashboard");
     const email = user ? user.email : "user@energi.co.id";
-    setCurrentUser({ name, role, email });
+    login({ name, role, email });
   }
 
   function handleLogout() {
-    setCurrentUser(null);
+    logout();
     setCurrentPage("dashboard");
     setSelectedAppId(null);
   }

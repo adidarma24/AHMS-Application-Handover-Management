@@ -7,6 +7,7 @@ import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import DueDateTimer from '../components/ui/DueDateTimer'
+import EscalationBadge from '../components/ui/EscalationBadge'
 import { Modal } from '../components/ui/Modal'
 import type { AppState, Application, AppStatus, Criticality, Role } from '../types'
 import type { Page } from '../App'
@@ -371,6 +372,7 @@ PT PERTAMINA`
                     {ai.required && <Badge variant="rejected">WAJIB</Badge>}
                     <Badge variant={aiStatusVariant(ai.status)}>{aiStatusLabel(ai.status)}</Badge>
                     <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>
+                    <EscalationBadge item={ai} />
                   </div>
                 ))}
               </div>

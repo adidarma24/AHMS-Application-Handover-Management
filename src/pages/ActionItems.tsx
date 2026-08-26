@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react'
-import { AlertTriangle, Clock, CheckCircle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Clock, CheckCircle, ChevronRight, Siren } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import DueDateTimer from '../components/ui/DueDateTimer'
+import EscalationBadge from '../components/ui/EscalationBadge'
+import { getEscalation } from '../lib/escalation'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
 
@@ -35,11 +37,13 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
   const overdueCount = filtered.filter(ai => ai.status === 'overdue').length
   const openCount = filtered.filter(ai => ai.status === 'open').length
   const doneCount = filtered.filter(ai => ai.status === 'completed').length
+  const escalatedCount = filtered.filter(ai => getEscalation(ai).escalated).length
 
   // Sama seperti kpiCards di Dashboard.tsx: icon dalam kotak warna + angka besar + label + sub
   const summaryCards = [
     { label: 'Overdue', value: overdueCount, sub: 'Perlu segera ditangani', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Open', value: openCount, sub: 'Masih berjalan', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Eskalasi', value: escalatedCount, sub: 'Auto-escalated / Manager O&M', icon: Siren, color: 'text-red-700', bg: 'bg-red-50' },
     { label: 'Completed', value: doneCount, sub: 'Sudah selesai', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ]
 
@@ -56,7 +60,7 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
       </div>
 
       {/* Summary cards — pola sama dengan KPI Cards di Dashboard */}
-      <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map(s => (
           <Card key={s.label} className="flex items-start gap-3">
             <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>
@@ -148,7 +152,10 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
                     <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>
                   </td>
                   <td className="px-3 py-3">
-                    <Badge variant={statusVariant(ai.status)}>{statusLabel(ai.status)}</Badge>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant={statusVariant(ai.status)}>{statusLabel(ai.status)}</Badge>
+                      <EscalationBadge item={ai} />
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button

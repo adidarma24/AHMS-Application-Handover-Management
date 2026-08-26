@@ -3,6 +3,7 @@ import { Search, ChevronRight } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import RiskScoreBar from '../components/ui/RiskScoreBar'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
 
@@ -153,14 +154,8 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                   <td className="px-5 py-3 text-gray-600 text-xs whitespace-nowrap">
                     {app.goLiveDate}
                   </td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                      app.riskScore >= 70 ? 'bg-red-50 text-red-600' :
-                      app.riskScore >= 50 ? 'bg-amber-50 text-amber-600' :
-                      'bg-emerald-50 text-emerald-600'
-                    }`}>
-                      {app.riskScore}
-                    </span>
+                  <td className="px-5 py-3 min-w-[110px]">
+                    <RiskScoreBar score={app.riskScore} />
                   </td>
                   <td className="px-5 py-3 text-xs">
                     {app.actionItems.filter(a => a.status === 'overdue').length > 0 ? (

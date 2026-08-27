@@ -132,16 +132,15 @@ export default function AIAssistant({ appState, currentUser }: Props) {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — di mobile digeser ke atas bottom nav (yang juga fixed
+          di posisi bawah) supaya tidak menutupi tab paling kanan (Profil).
+          Di layar >=lg (tidak ada bottom nav), posisinya balik seperti semula. */}
       <button
         onClick={() => setOpen(o => !o)}
+        className="fixed z-[1000] w-[52px] h-[52px] rounded-full border-none cursor-pointer flex items-center justify-center text-white text-[22px] transition-transform duration-200 right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:right-6 lg:bottom-6 print:hidden"
         style={{
-          position: 'fixed', bottom: 24, right: 24, width: 52, height: 52,
-          borderRadius: '50%', background: 'linear-gradient(135deg, #1B3A6B, #2563EB)',
-          border: 'none', cursor: 'pointer', zIndex: 1000,
+          background: 'linear-gradient(135deg, #1B3A6B, #2563EB)',
           boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, color: 'white', transition: 'transform 0.2s',
         }}
         onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.08)')}
         onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}
@@ -149,19 +148,19 @@ export default function AIAssistant({ appState, currentUser }: Props) {
         {open ? '✕' : '🤖'}
       </button>
 
-      {/* Chat panel */}
+      {/* Chat panel — di mobile melebar penuh (dikurangi margin kiri-kanan)
+          supaya tidak overflow di layar sempit, dan posisinya ikut naik
+          mengikuti tombol supaya tetap di atas bottom nav. */}
       {open && (
-        <div style={{
-          position: 'fixed', bottom: 88, right: 24, width: 340,
-          background: 'white', borderRadius: 14, zIndex: 999,
-          boxShadow: '0 12px 48px rgba(0,0,0,0.15)', border: '1px solid #e8edf3',
-          display: 'flex', flexDirection: 'column', maxHeight: 460,
-        }}>
+        <div
+          className="fixed z-[999] flex flex-col bg-white rounded-2xl border border-gray-100 left-4 right-4 bottom-[calc(4.5rem+52px+0.75rem+env(safe-area-inset-bottom))] max-h-[min(70vh,460px)] lg:left-auto lg:right-6 lg:bottom-[88px] lg:w-[340px] print:hidden"
+          style={{ boxShadow: '0 12px 48px rgba(0,0,0,0.15)' }}
+        >
           {/* Header */}
           <div style={{
             padding: '14px 16px', borderBottom: '1px solid #f3f4f6',
             background: 'linear-gradient(135deg, #1B3A6B, #2563EB)',
-            borderRadius: '14px 14px 0 0', display: 'flex', alignItems: 'center', gap: 10,
+            borderRadius: '16px 16px 0 0', display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',

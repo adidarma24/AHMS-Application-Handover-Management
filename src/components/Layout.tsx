@@ -271,7 +271,7 @@ export default function Layout({
     <div className="min-h-screen bg-gray-50">
       {/* ================= SIDEBAR (DESKTOP) ================= */}
       <aside
-        className="hidden lg:flex fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex-col z-30 transition-all duration-200"
+        className="hidden lg:flex fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex-col z-30 transition-all duration-200 print:hidden"
         style={{ width: collapsed ? 56 : 240 }}
       >
         {/* Logo */}
@@ -330,7 +330,7 @@ export default function Layout({
 
       {/* ================= TOPBAR ================= */}
       <header
-        className={`fixed top-0 right-0 left-0 h-14 bg-white border-b border-gray-200 flex items-center px-3 sm:px-5 gap-3 sm:gap-4 z-20 transition-all duration-200 ${collapsed ? "lg:left-14" : "lg:left-60"}`}
+        className={`fixed top-0 right-0 left-0 h-14 bg-white border-b border-gray-200 flex items-center px-3 sm:px-5 gap-3 sm:gap-4 z-20 transition-all duration-200 print:hidden ${collapsed ? "lg:left-14" : "lg:left-60"}`}
       >
         {/* Brand — cuma tampil di mobile, karena versi desktop sudah ada di sidebar */}
         <button
@@ -565,13 +565,13 @@ export default function Layout({
 
       {/* ================= MAIN CONTENT ================= */}
       <main
-        className={`transition-all duration-200 pt-14 h-screen flex flex-col pl-0 ${collapsed ? "lg:pl-14" : "lg:pl-60"}`}
+        className={`transition-all duration-200 pt-14 h-screen flex flex-col pl-0 print:pt-0 print:pl-0 print:h-auto ${collapsed ? "lg:pl-14" : "lg:pl-60"}`}
       >
-        <div className="p-4 sm:p-6 pb-24 lg:pb-6 overflow-y-auto flex-1">{children}</div>
+        <div className="p-4 sm:p-6 pb-24 lg:pb-6 overflow-y-auto flex-1 print:p-0 print:overflow-visible">{children}</div>
       </main>
 
       {/* ================= BOTTOM NAV (MOBILE) ================= */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 grid grid-cols-5 items-stretch px-1 pb-[env(safe-area-inset-bottom)]">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 grid grid-cols-5 items-stretch px-1 pb-[env(safe-area-inset-bottom)] print:hidden">
         {bottomNavItems.map((item) => {
           const active = currentPage === item.id;
           return (

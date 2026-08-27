@@ -86,6 +86,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     businessOwner: '',
     pic: currentUser.name,
     picOM: '',
+    reviewerTeknis: '',
     goLiveDate: '',
     technology: '',
     environment: '',
@@ -132,6 +133,14 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     [appState.users],
   )
 
+  // Sama seperti PIC O&M — reviewer teknis dipilih dari user aktif dengan
+  // role Reviewer Teknis, bukan nama hardcoded, supaya beban review tersebar
+  // dan bukan selalu jatuh ke satu orang yang sama.
+  const teknisReviewers = useMemo(
+    () => appState.users.filter(u => u.role === 'Reviewer Teknis' && u.active),
+    [appState.users],
+  )
+
   function validateStep0() {
     const e: Record<string, string> = {}
     if (!form.name.trim()) e.name = 'Nama aplikasi wajib diisi'
@@ -139,6 +148,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     if (!form.businessOwner.trim()) e.businessOwner = 'Business Owner wajib diisi'
     if (!form.pic.trim()) e.pic = 'PIC Project wajib diisi'
     if (!form.picOM.trim()) e.picOM = 'PIC O&M wajib diisi'
+    if (!form.reviewerTeknis.trim()) e.reviewerTeknis = 'Reviewer Teknis wajib dipilih'
     if (!form.goLiveDate) e.goLiveDate = 'Tanggal go-live wajib diisi'
     if (!form.technology.trim()) e.technology = 'Teknologi wajib diisi'
     if (!form.environment) e.environment = 'Environment wajib dipilih'
@@ -194,7 +204,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
   function resetForm() {
     setStep(0)
     setSubmitted(false)
-    setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, picOM: '', goLiveDate: '', technology: '', environment: '', category: '', vendor: '' })
+    setForm({ name: '', description: '', criticality: 'Medium', businessOwner: '', pic: currentUser.name, picOM: '', reviewerTeknis: '', goLiveDate: '', technology: '', environment: '', category: '', vendor: '' })
     setUploads({})
     setUploadErrors({})
   }
@@ -220,7 +230,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
       submittedDate: now,
       targetHandoverDate: form.goLiveDate,
       reviewers: [
-        { role: 'Reviewer Teknis', name: 'Reza Firmansyah', status: 'pending' },
+        { role: 'Reviewer Teknis', name: form.reviewerTeknis, status: 'pending' },
         { role: 'O&M Application Support', name: form.picOM, status: 'pending' },
         { role: 'Business Owner', name: form.businessOwner, status: 'pending' },
       ],
@@ -311,7 +321,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
 
   if (submitted) {
     return (
-      <div className="max-w-lg mx-auto mt-16 text-center">
+      <div className="max-w-lg mx-auto mt-8 sm:mt-16 px-4 text-center">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
           <CheckCircle2 size={32} className="text-emerald-600" />
         </div>
@@ -320,9 +330,9 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
           Aplikasi <strong className="text-gray-700">"{form.name}"</strong> telah diajukan dan statusnya sekarang{' '}
           <strong className="text-gray-700">"Waiting for O&M Review"</strong>
         </p>
-        <div className="flex gap-3 justify-center">
-          <Button onClick={() => onNavigate('app-detail', newAppId)}>Lihat Detail Aplikasi</Button>
-          <Button variant="secondary" onClick={resetForm}>Ajukan Aplikasi Baru</Button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button className="w-full sm:w-auto justify-center" onClick={() => onNavigate('app-detail', newAppId)}>Lihat Detail Aplikasi</Button>
+          <Button className="w-full sm:w-auto justify-center" variant="secondary" onClick={resetForm}>Ajukan Aplikasi Baru</Button>
         </div>
       </div>
     )
@@ -335,8 +345,13 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
         <p className="text-sm text-gray-500 mt-0.5">Isi formulir multi-step untuk mengajukan proses handover aplikasi ke O&M</p>
       </div>
 
-      {/* Stepper */}
-      <div className="flex items-center mb-7">
+      {/* Stepper — di mobile label lengkap disembunyikan (hanya bulatan angka +
+          garis) supaya tidak overflow horizontal; label step aktif ditampilkan
+          ringkas di atasnya sebagai gantinya. */}
+      <p className="sm:hidden text-xs font-semibold text-indigo-600 mb-2">
+        Langkah {step + 1} dari {STEP_LABELS.length}: {STEP_LABELS[step]}
+      </p>
+      <div className="flex items-center mb-6 sm:mb-7">
         {STEP_LABELS.map((label, i) => (
           <div key={i} className={`flex items-center ${i < STEP_LABELS.length - 1 ? 'flex-1' : ''}`}>
             <div className="flex items-center gap-2">
@@ -347,18 +362,18 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
               >
                 {i < step ? '✓' : i + 1}
               </div>
-              <span className={`text-xs whitespace-nowrap ${i === step ? 'font-semibold text-indigo-600' : 'text-gray-500'}`}>
+              <span className={`hidden sm:inline text-xs whitespace-nowrap ${i === step ? 'font-semibold text-indigo-600' : 'text-gray-500'}`}>
                 {label}
               </span>
             </div>
             {i < STEP_LABELS.length - 1 && (
-              <div className={`flex-1 h-px mx-3 ${i < step ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+              <div className={`flex-1 h-px mx-2 sm:mx-3 ${i < step ? 'bg-emerald-500' : 'bg-gray-200'}`} />
             )}
           </div>
         ))}
       </div>
 
-      <Card className="!p-7">
+      <Card className="!p-4 sm:!p-7">
         {/* Step 0: Data Aplikasi */}
         {step === 0 && (
           <div>
@@ -408,6 +423,15 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                   Penanggung jawab O&M yang akan menerima aplikasi ini setelah handover
                 </p>
               </Field>
+              <Field label="Reviewer Teknis *" error={errors.reviewerTeknis}>
+                <select value={form.reviewerTeknis} onChange={e => f('reviewerTeknis', e.target.value)} className={inputCls(errors.reviewerTeknis)}>
+                  <option value="">-- Pilih Reviewer Teknis --</option>
+                  {teknisReviewers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Akan meninjau aspek teknis & keamanan sebelum aplikasi disetujui
+                </p>
+              </Field>
               <Field label="Target Go-Live *" error={errors.goLiveDate}>
                 <input type="date" value={form.goLiveDate} onChange={e => f('goLiveDate', e.target.value)} className={inputCls(errors.goLiveDate)} />
               </Field>
@@ -453,14 +477,14 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
         {/* Step 1: Upload Dokumen — pilih file langsung terupload (tanpa delay/spinner) */}
         {step === 1 && (
           <div>
-            <div className="flex items-start justify-between gap-4 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-5">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Step 2: Upload Dokumen</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {uploadedCount} dari {docTypes.length} dokumen terupload
                 </p>
               </div>
-              <div className="w-40 flex-shrink-0">
+              <div className="w-full sm:w-40 flex-shrink-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[11px] font-medium text-gray-500">Dokumen Wajib</span>
                   <span className={`text-[11px] font-bold ${requiredDocsUploaded ? 'text-emerald-600' : 'text-gray-500'}`}>
@@ -513,7 +537,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
         {step === 2 && (
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Step 3: Ringkasan Pengajuan</h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 bg-gray-50 rounded-lg p-4 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 bg-gray-50 rounded-lg p-4 mb-5">
               {[
                 ['Nama Aplikasi', form.name],
                 ['Kritikalitas', form.criticality],
@@ -521,21 +545,22 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
                 ['Business Owner', form.businessOwner],
                 ['PIC Project', form.pic],
                 ['PIC O&M', form.picOM],
+                ['Reviewer Teknis', form.reviewerTeknis],
                 ['Target Go-Live', form.goLiveDate],
                 ['Environment', form.environment],
                 ['Teknologi', form.technology],
                 ['Vendor', form.vendor || 'Internal IT'],
               ].map(([label, value]) => (
-                <div key={label}>
+                <div key={label} className="min-w-0">
                   <div className="text-xs text-gray-500 font-medium">{label}</div>
-                  <div className="text-sm text-gray-900 font-medium">{value}</div>
+                  <div className="text-sm text-gray-900 font-medium break-words">{value}</div>
                 </div>
               ))}
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <div className="text-xs text-gray-500 font-medium">Deskripsi</div>
-                <div className="text-sm text-gray-900">{form.description}</div>
+                <div className="text-sm text-gray-900 break-words">{form.description}</div>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <div className="text-xs text-gray-500 font-medium">Dokumen Terupload</div>
                 <div className="text-sm text-gray-900">
                   {docTypes.filter(d => uploads[d.id]?.status === 'done').length} dari {docTypes.length} dokumen

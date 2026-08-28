@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ArrowLeft, CheckCircle2, XCircle, Clock, FileText, Bot,
+  ArrowLeft, CheckCircle2, XCircle, Clock, FileText, Gauge,
   ChevronDown, ChevronUp, Mail, Plus,
 } from 'lucide-react'
 import Card from '../components/ui/Card'
@@ -52,9 +52,15 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   const daysSinceSubmit = Math.floor((Date.now() - new Date(app.submittedDate).getTime()) / (1000 * 60 * 60 * 24))
   const rejectedReviewers = app.reviewers.filter(r => r.status === 'rejected')
 
-  const riskLevel = app.riskScore >= 70 ? 'Tinggi' : app.riskScore >= 40 ? 'Sedang' : 'Rendah'
-  const riskColor = app.riskScore >= 70 ? '#dc2626' : app.riskScore >= 40 ? '#d97706' : '#16A34A'
-  const riskBg = app.riskScore >= 70 ? 'bg-red-50' : app.riskScore >= 40 ? 'bg-amber-50' : 'bg-emerald-50'
+  const riskLevel = app.riskScore >= 70 ? 'Tinggi' : app.riskScore >= 50 ? 'Sedang' : 'Rendah'
+  const riskColor = app.riskScore >= 70 ? '#dc2626' : app.riskScore >= 50 ? '#d97706' : '#16A34A'
+  const riskBg = app.riskScore >= 70 ? 'bg-red-50' : app.riskScore >= 50 ? 'bg-amber-50' : 'bg-emerald-50'
+
+  // Dipakai baik di draft eskalasi maupun Berita Acara — sebelumnya draft
+  // eskalasi cuma nulis "Manager Divisi IT & O&M" generik, tidak konsisten
+  // dengan Berita Acara yang sudah benar mengambil nama asli dari data user.
+  const managerOMName = appState.users.find(u => u.role === 'Manager O&M')?.name || 'Manager O&M'
+  const managerOMEmail = appState.users.find(u => u.role === 'Manager O&M')?.email
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -115,11 +121,8 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   if (app.criticality === 'Critical') aiInsightReasons.push(`kritikalitas Critical`)
   if (!app.documents.every(d => d.uploaded)) aiInsightReasons.push(`dokumen wajib belum lengkap`)
 
-  const escalationDraft = `Kepada: Manager Divisi IT & O&M
-Cc: ${app.businessOwner}, ${app.pic}, ${app.picOM}
-Subjek: [ESKALASI] Hambatan Proses Handover — ${app.name}
-
-Yth. Bapak/Ibu Manager,
+  const escalationSubject = `[ESKALASI] Hambatan Proses Handover — ${app.name}`
+  const escalationBody = `Yth. Bapak/Ibu ${managerOMName},
 
 Dengan hormat, kami sampaikan bahwa proses handover aplikasi berikut memerlukan perhatian segera:
 
@@ -140,6 +143,23 @@ ${currentUser.name}
 ${currentUser.role}
 PT PERTAMINA`
 
+  // Teks lengkap untuk ditampilkan/disalin (dengan header Kepada/Cc/Subjek
+  // supaya bisa langsung ditempel ke saluran lain seperti WhatsApp/Teams).
+  const escalationDraft = `Kepada: ${managerOMName} (Manager O&M)
+Cc: ${app.businessOwner}, ${app.pic}, ${app.picOM}
+Subjek: ${escalationSubject}
+
+${escalationBody}`
+
+  // Link mailto: sebelumnya tombol ini cuma bisa "disalin", tidak jelas
+  // langkah selanjutnya harus ngapain. Sekarang bisa langsung membuka
+  // aplikasi email dengan penerima, cc, subjek, dan isi yang sudah terisi.
+  const ccEmails = [app.businessOwner, app.pic, app.picOM]
+    .map(name => appState.users.find(u => u.name === name)?.email)
+    .filter((e): e is string => !!e)
+    .join(',')
+  const escalationMailto = `mailto:${managerOMEmail || ''}?cc=${encodeURIComponent(ccEmails)}&subject=${encodeURIComponent(escalationSubject)}&body=${encodeURIComponent(escalationBody)}`
+
   // Membuka jendela cetak berisi Berita Acara yang sudah diformat, supaya bisa
   // langsung di-print atau disimpan sebagai PDF lewat dialog print browser.
   function printBeritaAcara() {
@@ -156,7 +176,7 @@ PT PERTAMINA`
         </tr>`
       )
       .join('')
-    const managerOM = appState.users.find(u => u.role === 'Manager O&M')?.name || '-'
+    const managerOM = managerOMName
     printWindow.document.write(`
       <html>
         <head>
@@ -222,8 +242,8 @@ PT PERTAMINA`
 
       {/* Header */}
       <Card>
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+          <div className="min-w-0">
             <h1 className="text-xl font-bold text-gray-900">{app.name}</h1>
             <p className="text-sm text-gray-500 mt-1">{app.description}</p>
           </div>
@@ -244,9 +264,9 @@ PT PERTAMINA`
             ['Vendor', app.vendor],
             ['Kategori', app.category],
           ].map(([label, value]) => (
-            <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
+            <div key={label} className="bg-gray-50 rounded-lg px-3 py-2 min-w-0">
               <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{label}</div>
-              <div className="text-xs font-medium text-gray-900 mt-0.5 truncate">{value}</div>
+              <div className="text-xs font-medium text-gray-900 mt-0.5 truncate" title={value}>{value}</div>
             </div>
           ))}
         </div>
@@ -468,7 +488,7 @@ PT PERTAMINA`
                     {[
                       ['Project Manager', app.pic],
                       ['O&M Application Support', app.picOM],
-                      ['Manager O&M', appState.users.find(u => u.role === 'Manager O&M')?.name || '-'],
+                      ['Manager O&M', managerOMName],
                     ].map(([role, name]) => (
                       <div key={role}>
                         <div className="h-14" />
@@ -491,8 +511,8 @@ PT PERTAMINA`
               onClick={() => setAiExpanded(e => !e)}
             >
               <div className="flex items-center gap-2">
-                <Bot size={15} className="text-gray-700" />
-                <span className="text-sm font-semibold text-gray-900">AI Risk Insight</span>
+                <Gauge size={15} className="text-gray-700" />
+                <span className="text-sm font-semibold text-gray-900">Analisis Risiko</span>
               </div>
               {aiExpanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
             </div>
@@ -511,7 +531,7 @@ PT PERTAMINA`
                 </div>
                 {aiInsightReasons.length > 0 ? (
                   <div>
-                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Faktor Risiko</div>
+                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Faktor Risiko Terdeteksi</div>
                     {aiInsightReasons.map((r, i) => (
                       <div key={i} className="flex gap-1.5 text-xs text-gray-700 py-1">
                         <span className="flex-shrink-0" style={{ color: riskColor }}>•</span>
@@ -548,18 +568,21 @@ PT PERTAMINA`
           <>
             <Button variant="outline" onClick={() => { setShowEscModal(false); setCopied(false) }}>Tutup</Button>
             <Button
-              variant={copied ? 'success' : 'primary'}
+              variant="outline"
               onClick={async () => {
-                // Bug lama: copy string placeholder 'Draft disalin!', bukan isi draft.
-                // Sekarang copy escalationDraft yang sebenarnya, dan modal tetap
-                // terbuka sebentar supaya feedback "Tersalin" terlihat.
                 await navigator.clipboard?.writeText(escalationDraft)
                 setCopied(true)
-                setTimeout(() => { setCopied(false); setShowEscModal(false) }, 1200)
+                setTimeout(() => setCopied(false), 1500)
               }}
             >
               {copied ? '✓ Tersalin' : 'Salin Draft'}
             </Button>
+            <a
+              href={escalationMailto}
+              className="inline-flex items-center gap-2 font-medium rounded-lg transition-colors duration-150 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm px-4 py-2 text-sm"
+            >
+              <Mail size={14} /> Buka di Email
+            </a>
           </>
         }
       >

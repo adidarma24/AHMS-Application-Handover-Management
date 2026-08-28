@@ -417,7 +417,7 @@ export default function Reports({ appState }: Props) {
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                         app.riskScore >= 70 ? 'bg-red-50 text-red-600' :
-                        app.riskScore >= 40 ? 'bg-amber-50 text-amber-600' :
+                        app.riskScore >= 50 ? 'bg-amber-50 text-amber-600' :
                         'bg-emerald-50 text-emerald-600'
                       }`}>
                         {app.riskScore}
@@ -454,7 +454,7 @@ export default function Reports({ appState }: Props) {
                   <p className="text-sm font-medium text-gray-900 min-w-0 truncate">{app.name}</p>
                   <span className={`flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                     app.riskScore >= 70 ? 'bg-red-50 text-red-600' :
-                    app.riskScore >= 40 ? 'bg-amber-50 text-amber-600' :
+                    app.riskScore >= 50 ? 'bg-amber-50 text-amber-600' :
                     'bg-emerald-50 text-emerald-600'
                   }`}>
                     {app.riskScore}

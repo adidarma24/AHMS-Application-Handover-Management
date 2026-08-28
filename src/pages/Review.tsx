@@ -10,6 +10,10 @@ interface Props {
   onUpdateApp: (id: string, updates: Partial<Application>) => void
 }
 
+const critColor: Record<string, string> = {
+  Critical: '#dc2626', High: '#d97706', Medium: '#2563EB', Low: '#6b7280',
+}
+
 export default function Review({ appState, currentUser, onNavigate, onUpdateApp }: Props) {
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null)
   const [decision, setDecision] = useState<ReviewDecision | null>(null)
@@ -104,23 +108,19 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
     setSelectedAppId(null)
   }
 
-  const critColor: Record<string, string> = {
-    Critical: '#dc2626', High: '#d97706', Medium: '#2563EB', Low: '#6b7280',
-  }
-
   if (submitted) {
     return (
-      <div style={{ maxWidth: 500, margin: '60px auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 52, marginBottom: 16 }}>
+      <div className="max-w-[500px] mx-auto mt-10 sm:mt-16 text-center px-4">
+        <div className="text-5xl mb-4">
           {decision === 'approved' ? '✅' : decision === 'approved_with_condition' ? '⚠️' : '❌'}
         </div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a2332', margin: '0 0 8px' }}>Review Tersubmit</h2>
-        <p style={{ color: '#6b7280', marginBottom: 20 }}>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Review Tersubmit</h2>
+        <p className="text-gray-500 mb-5">
           Keputusan Anda telah disimpan untuk aplikasi <strong>{selectedApp?.name}</strong>
         </p>
         <button
           onClick={() => { setSubmitted(false); setSelectedAppId(null); setDecision(null); setNotes('') }}
-          style={{ padding: '10px 20px', borderRadius: 8, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+          className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white border-none cursor-pointer text-sm font-semibold hover:bg-indigo-700 transition-colors"
         >
           Kembali ke Daftar Review
         </button>
@@ -131,22 +131,33 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
   if (selectedApp && !isManagerOM) {
     const myReview = selectedApp.reviewers.find(r => r.role === currentUser.role)
     return (
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <button onClick={() => { setSelectedAppId(null); setDecision(null); setNotes('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', fontSize: 13, marginBottom: 16, padding: 0 }}>
+      <div className="max-w-[720px] mx-auto">
+        <button
+          onClick={() => { setSelectedAppId(null); setDecision(null); setNotes('') }}
+          className="bg-transparent border-none cursor-pointer text-indigo-600 text-sm mb-4 p-0"
+        >
           ← Kembali ke daftar review
         </button>
 
-        <div style={{ background: 'white', borderRadius: 12, padding: 24, border: '1px solid #e8edf3', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', color: '#1a2332' }}>{selectedApp.name}</h2>
-              <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{selectedApp.description}</p>
+        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-gray-900 mb-1">{selectedApp.name}</h2>
+              <p className="text-[13px] text-gray-500">{selectedApp.description}</p>
             </div>
-            <span className={`badge ${getStatusBadgeClass(selectedApp.status)}`} style={{ padding: '4px 10px', borderRadius: 10, fontSize: 12 }}>{selectedApp.status}</span>
+            <span
+              className={`badge ${getStatusBadgeClass(selectedApp.status)} self-start flex-shrink-0`}
+              style={{ padding: '4px 10px', borderRadius: 10, fontSize: 12 }}
+            >
+              {selectedApp.status}
+            </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {/* Grid info — 1 kolom di mobile, 2 di tablet, 3 di desktop.
+              Sebelumnya dipaksa 3 kolom tetap (repeat(3, 1fr)) sehingga
+              sangat sempit di layar HP. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {[
-              ['Kritikalitas', <span style={{ fontWeight: 600, color: critColor[selectedApp.criticality] }}>{selectedApp.criticality}</span>],
+              ['Kritikalitas', <span key="c" style={{ fontWeight: 600, color: critColor[selectedApp.criticality] }}>{selectedApp.criticality}</span>],
               ['PIC Project', selectedApp.pic],
               ['PIC O&M', selectedApp.picOM],
               ['Business Owner', selectedApp.businessOwner],
@@ -154,41 +165,44 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
               ['Teknologi', selectedApp.technology],
               ['Environment', selectedApp.environment],
             ].map(([label, value], i) => (
-              <div key={i} style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 6 }}>
-                <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{label as string}</div>
-                <div style={{ fontSize: 13, color: '#1a2332', marginTop: 2 }}>{value}</div>
+              <div key={i} className="px-3 py-2 bg-gray-50 rounded-md min-w-0">
+                <div className="text-[11px] text-gray-500 font-medium">{label as string}</div>
+                <div className="text-[13px] text-gray-900 mt-0.5 break-words">{value}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Dokumen */}
-        <div style={{ background: 'white', borderRadius: 10, padding: 20, border: '1px solid #e8edf3', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 12px', color: '#1a2332' }}>Dokumen Tersedia</h3>
+        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 mb-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Dokumen Tersedia</h3>
           {selectedApp.documents.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9ca3af' }}>Belum ada dokumen yang diunggah</p>
+            <p className="text-[13px] text-gray-400">Belum ada dokumen yang diunggah</p>
           ) : selectedApp.documents.map(doc => (
-            <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-              <span style={{ color: doc.uploaded ? '#16A34A' : '#dc2626' }}>{doc.uploaded ? '✓' : '✗'}</span>
-              <span style={{ fontSize: 13, color: '#374151' }}>{doc.name}</span>
-              {doc.required && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>WAJIB</span>}
-              {doc.uploadedAt && <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{doc.uploadedAt}</span>}
+            <div key={doc.id} className="flex items-center gap-2.5 flex-wrap py-1.5 border-b border-gray-100 last:border-b-0">
+              <span className={doc.uploaded ? 'text-emerald-600' : 'text-red-600'}>{doc.uploaded ? '✓' : '✗'}</span>
+              <span className="text-[13px] text-gray-700 min-w-0 break-words">{doc.name}</span>
+              {doc.required && <span className="text-[10px] text-red-600 font-semibold">WAJIB</span>}
+              {doc.uploadedAt && <span className="text-[11px] text-gray-400 sm:ml-auto">{doc.uploadedAt}</span>}
             </div>
           ))}
         </div>
 
         {/* Form Review */}
-        <div style={{ background: 'white', borderRadius: 10, padding: 20, border: '1px solid #e8edf3' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 16px', color: '#1a2332' }}>Form Review — {currentUser.role}</h3>
+        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Form Review — {currentUser.role}</h3>
 
           {myReview?.status !== 'pending' ? (
-            <div style={{ padding: 16, background: '#f0fdf4', borderRadius: 8, color: '#16A34A', fontSize: 13 }}>
+            <div className="p-4 bg-emerald-50 rounded-lg text-emerald-600 text-[13px]">
               ✓ Anda sudah memberikan review: <strong>{myReview?.status}</strong>
-              {myReview?.notes && <p style={{ margin: '6px 0 0', color: '#374151' }}>Catatan: {myReview.notes}</p>}
+              {myReview?.notes && <p className="mt-1.5 text-gray-700">Catatan: {myReview.notes}</p>}
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+              {/* Tombol keputusan — ditumpuk vertikal di mobile supaya teks
+                  "Approve with Condition" tidak kepotong/overlap; jadi
+                  sejajar lagi mulai breakpoint sm. */}
+              <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
                 {[
                   { key: 'approved', label: '✓ Approve', color: '#16A34A', bg: '#f0fdf4', border: '#bbf7d0' },
                   { key: 'approved_with_condition', label: '⚠ Approve with Condition', color: '#d97706', bg: '#fefce8', border: '#fde68a' },
@@ -197,12 +211,11 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
                   <button
                     key={opt.key}
                     onClick={() => setDecision(opt.key as ReviewDecision)}
+                    className="sm:flex-1 px-3 py-2.5 rounded-lg cursor-pointer text-[13px] font-semibold transition-all duration-150"
                     style={{
-                      flex: 1, padding: '10px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
                       border: `2px solid ${decision === opt.key ? opt.color : '#e5e7eb'}`,
                       background: decision === opt.key ? opt.bg : 'white',
                       color: decision === opt.key ? opt.color : '#6b7280',
-                      transition: 'all 0.15s',
                     }}
                   >
                     {opt.label}
@@ -211,8 +224,8 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
               </div>
 
               {(decision === 'rejected' || decision === 'approved_with_condition') && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 5 }}>
+                <div className="mb-4">
+                  <label className="block text-[13px] font-medium text-gray-700 mb-1.5">
                     Catatan {decision === 'rejected' ? '(wajib)' : '(opsional)'}
                   </label>
                   <textarea
@@ -220,7 +233,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
                     onChange={e => setNotes(e.target.value)}
                     placeholder="Jelaskan alasan penolakan atau kondisi yang harus dipenuhi..."
                     rows={4}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: 7, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                    className="w-full px-3 py-2.5 rounded-md border border-gray-300 text-[13px] outline-none resize-y box-border"
                   />
                 </div>
               )}
@@ -228,11 +241,10 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
               <button
                 onClick={handleSubmitReview}
                 disabled={!decision || (decision === 'rejected' && !notes.trim())}
+                className="w-full py-2.5 rounded-lg border-none text-white text-[13px] font-semibold"
                 style={{
-                  width: '100%', padding: '11px', borderRadius: 8, border: 'none',
                   background: !decision || (decision === 'rejected' && !notes.trim()) ? '#9ca3af' : '#2563EB',
-                  color: 'white', cursor: !decision || (decision === 'rejected' && !notes.trim()) ? 'not-allowed' : 'pointer',
-                  fontSize: 13, fontWeight: 600,
+                  cursor: !decision || (decision === 'rejected' && !notes.trim()) ? 'not-allowed' : 'pointer',
                 }}
               >
                 Submit Review
@@ -248,48 +260,50 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
   if (isManagerOM && selectedApp) {
     const canApprove = canFinalApprove(selectedApp)
     return (
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <button onClick={() => setSelectedAppId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', fontSize: 13, marginBottom: 16, padding: 0 }}>
+      <div className="max-w-[720px] mx-auto">
+        <button onClick={() => setSelectedAppId(null)} className="bg-transparent border-none cursor-pointer text-indigo-600 text-sm mb-4 p-0">
           ← Kembali
         </button>
-        <div style={{ background: 'white', borderRadius: 12, padding: 24, border: '1px solid #e8edf3', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', color: '#1a2332' }}>{selectedApp.name}</h2>
-          <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>{selectedApp.description}</p>
-          <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 12px', color: '#1a2332' }}>Status Reviewer</h3>
+        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 mb-4">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">{selectedApp.name}</h2>
+          <p className="text-[13px] text-gray-500 mb-5">{selectedApp.description}</p>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Status Reviewer</h3>
           {selectedApp.reviewers.map(r => (
-            <div key={r.role} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 18 }}>
+            <div key={r.role} className="flex items-center gap-3 flex-wrap px-3.5 py-2.5 bg-gray-50 rounded-lg mb-2">
+              <span className="text-lg flex-shrink-0">
                 {r.status === 'approved' || r.status === 'approved_with_condition' ? '✅' : r.status === 'rejected' ? '❌' : '⏳'}
               </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#1a2332' }}>{r.name}</div>
-                <div style={{ fontSize: 11, color: '#6b7280' }}>{r.role}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-medium text-gray-900 truncate">{r.name}</div>
+                <div className="text-[11px] text-gray-500">{r.role}</div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: r.status === 'approved' || r.status === 'approved_with_condition' ? '#16A34A' : r.status === 'rejected' ? '#dc2626' : '#d97706' }}>
+              <span
+                className="text-xs font-semibold flex-shrink-0"
+                style={{ color: r.status === 'approved' || r.status === 'approved_with_condition' ? '#16A34A' : r.status === 'rejected' ? '#dc2626' : '#d97706' }}
+              >
                 {r.status === 'approved' ? 'Approved' : r.status === 'approved_with_condition' ? 'Approved w/ Condition' : r.status === 'rejected' ? 'Rejected' : 'Pending'}
               </span>
             </div>
           ))}
           {selectedApp.actionItems.filter(a => a.required && a.status !== 'completed').length > 0 && (
-            <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, marginTop: 12, fontSize: 13, color: '#dc2626' }}>
+            <div className="px-3.5 py-2.5 bg-red-50 rounded-lg mt-3 text-[13px] text-red-600">
               ⚠ Ada {selectedApp.actionItems.filter(a => a.required && a.status !== 'completed').length} action item WAJIB yang belum diselesaikan
             </div>
           )}
           <button
             onClick={() => handleFinalApprove(selectedApp)}
             disabled={!canApprove}
+            className="w-full mt-5 py-3 rounded-lg border-none text-white text-sm font-bold transition-all duration-150"
             style={{
-              width: '100%', marginTop: 20, padding: '12px', borderRadius: 8, border: 'none',
               background: canApprove ? '#16A34A' : '#9ca3af',
-              color: 'white', cursor: canApprove ? 'pointer' : 'not-allowed',
-              fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
+              cursor: canApprove ? 'pointer' : 'not-allowed',
             }}
             title={!canApprove ? 'Semua reviewer harus approve dan seluruh action item wajib harus completed' : ''}
           >
             {canApprove ? '✓ Final Approval — Handover Accepted' : '⊘ Final Approval (syarat belum terpenuhi)'}
           </button>
           {!canApprove && (
-            <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', marginTop: 8 }}>
+            <p className="text-xs text-gray-500 text-center mt-2">
               Semua reviewer harus approve & seluruh action item wajib harus completed
             </p>
           )}
@@ -300,70 +314,74 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', color: '#1a2332' }}>
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-gray-900 mb-1">
           {isManagerOM ? 'Final Approval' : 'Review & Approval'}
         </h1>
-        <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+        <p className="text-[13px] text-gray-500">
           {reviewableApps.length} aplikasi memerlukan {isManagerOM ? 'final approval' : 'review Anda'}
         </p>
       </div>
 
       {reviewableApps.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, background: 'white', borderRadius: 10, border: '1px solid #e8edf3', color: '#9ca3af' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
-          <p style={{ fontSize: 14 }}>Tidak ada aplikasi yang perlu di-review saat ini</p>
+        <div className="text-center py-14 px-6 bg-white rounded-xl border border-gray-200 text-gray-400">
+          <div className="text-4xl mb-3">✓</div>
+          <p className="text-sm">Tidak ada aplikasi yang perlu di-review saat ini</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {reviewableApps.map(app => {
             const myReview = app.reviewers.find(r => r.role === currentUser.role)
             const canApprove = isManagerOM && canFinalApprove(app)
             return (
               <div
                 key={app.id}
-                style={{ background: 'white', borderRadius: 10, padding: 20, border: '1px solid #e8edf3', cursor: 'pointer' }}
+                className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 cursor-pointer table-row"
                 onClick={() => setSelectedAppId(app.id)}
-                className="table-row"
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#1a2332' }}>{app.name}</h3>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+                      <h3 className="text-sm font-semibold text-gray-900">{app.name}</h3>
                       <span className={`badge ${getStatusBadgeClass(app.status)}`} style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>{app.status}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: critColor[app.criticality] }}>{app.criticality}</span>
+                      <span className="text-[11px] font-semibold" style={{ color: critColor[app.criticality] }}>{app.criticality}</span>
                     </div>
-                    <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 10px' }}>{app.description.slice(0, 100)}...</p>
-                    <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#374151' }}>
+                    <p className="text-xs text-gray-500 mb-2.5">{app.description.slice(0, 100)}...</p>
+                    <div className="flex gap-x-4 gap-y-1 flex-wrap text-xs text-gray-700">
                       <span>PIC Project: {app.pic}</span>
                       <span>Go-Live: {app.goLiveDate}</span>
                       {app.actionItems.filter(a => a.status === 'overdue').length > 0 && (
-                        <span style={{ color: '#dc2626', fontWeight: 600 }}>⚠ {app.actionItems.filter(a => a.status === 'overdue').length} overdue</span>
+                        <span className="text-red-600 font-semibold">⚠ {app.actionItems.filter(a => a.status === 'overdue').length} overdue</span>
                       )}
                     </div>
                     {isManagerOM && (
-                      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                      <div className="flex gap-1.5 flex-wrap mt-2.5">
                         {app.reviewers.map(r => (
-                          <span key={r.role} title={`${r.role}: ${r.status}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: r.status !== 'pending' ? '#f0fdf4' : '#fefce8', color: r.status !== 'pending' ? '#16A34A' : '#d97706' }}>
+                          <span
+                            key={r.role}
+                            title={`${r.role}: ${r.status}`}
+                            className="text-[11px] px-2 py-0.5 rounded-full"
+                            style={{ background: r.status !== 'pending' ? '#f0fdf4' : '#fefce8', color: r.status !== 'pending' ? '#16A34A' : '#d97706' }}
+                          >
                             {r.status !== 'pending' ? '✓' : '⏳'} {r.role.split(' ')[0]}
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-2 flex-shrink-0">
                     {isManagerOM ? (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: canApprove ? '#16A34A' : '#d97706' }}>
+                      <span className="text-xs font-semibold" style={{ color: canApprove ? '#16A34A' : '#d97706' }}>
                         {canApprove ? '✓ Siap final approval' : '⏳ Belum siap'}
                       </span>
                     ) : (
                       myReview && (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: myReview.status === 'pending' ? '#d97706' : '#16A34A' }}>
+                        <span className="text-xs font-semibold" style={{ color: myReview.status === 'pending' ? '#d97706' : '#16A34A' }}>
                           {myReview.status === 'pending' ? 'Perlu review' : 'Sudah di-review'}
                         </span>
                       )
                     )}
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>→ Buka detail</span>
+                    <span className="text-xs text-gray-400">→ Buka detail</span>
                   </div>
                 </div>
               </div>
@@ -373,8 +391,4 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
       )}
     </div>
   )
-}
-
-const critColor: Record<string, string> = {
-  Critical: '#dc2626', High: '#d97706', Medium: '#2563EB', Low: '#6b7280',
 }

@@ -9,6 +9,7 @@ import Button from '../components/ui/Button'
 import DueDateTimer from '../components/ui/DueDateTimer'
 import EscalationBadge from '../components/ui/EscalationBadge'
 import { Modal } from '../components/ui/Modal'
+import { getEffectiveStatus } from '../lib/actionItemStatus'
 import type { AppState, Application, AppStatus, Criticality, Role } from '../types'
 import type { Page } from '../App'
 
@@ -45,10 +46,15 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   const [showEscModal, setShowEscModal] = useState(false)
   const [aiExpanded, setAiExpanded] = useState(true)
   const [newActionTitle, setNewActionTitle] = useState('')
+  const [newActionAssignee, setNewActionAssignee] = useState(app.pic)
+  const [newActionDueDate, setNewActionDueDate] = useState(
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  )
+  const [newActionPriority, setNewActionPriority] = useState<'high' | 'medium' | 'low'>('medium')
   const [newActionRequired, setNewActionRequired] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const overdueCount = app.actionItems.filter(a => a.status === 'overdue').length
+  const overdueCount = app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length
   const daysSinceSubmit = Math.floor((Date.now() - new Date(app.submittedDate).getTime()) / (1000 * 60 * 60 * 24))
   const rejectedReviewers = app.reviewers.filter(r => r.status === 'rejected')
 
@@ -79,14 +85,15 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   // sumbernya langsung dari app.history).
   function addActionItem() {
     if (!newActionTitle.trim()) return
+    if (!newActionDueDate) return
     const title = newActionTitle.trim()
     const newItem = {
       id: `ai-${Date.now()}`,
       title,
-      assignee: app.pic,
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      assignee: newActionAssignee || app.pic,
+      dueDate: newActionDueDate,
       status: 'open' as const,
-      priority: 'medium' as const,
+      priority: newActionPriority,
       required: newActionRequired,
     }
     const historyEntry = {
@@ -97,6 +104,9 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
     }
     onUpdateApp(app.id, { actionItems: [...app.actionItems, newItem], history: [...app.history, historyEntry] })
     setNewActionTitle('')
+    setNewActionDueDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
+    setNewActionPriority('medium')
+    setNewActionAssignee(app.pic)
     setNewActionRequired(false)
   }
 
@@ -363,6 +373,44 @@ ${escalationBody}`
                     <Plus size={14} /> Tambah
                   </Button>
                 </div>
+                {/* Sebelumnya assignee/due date/priority di-hardcode diam-diam
+                    (selalu PIC Project, +7 hari, medium) tanpa terlihat sama
+                    sekali di form — sekarang bisa dilihat & diatur langsung. */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                  <div>
+                    <label className="text-[11px] text-gray-500 mb-1 block">Ditugaskan ke</label>
+                    <select
+                      value={newActionAssignee}
+                      onChange={e => setNewActionAssignee(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                    >
+                      {appState.users.filter(u => u.active).map(u => (
+                        <option key={u.id} value={u.name}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 mb-1 block">Due date</label>
+                    <input
+                      type="date"
+                      value={newActionDueDate}
+                      onChange={e => setNewActionDueDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 mb-1 block">Prioritas</label>
+                    <select
+                      value={newActionPriority}
+                      onChange={e => setNewActionPriority(e.target.value as 'high' | 'medium' | 'low')}
+                      className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                    >
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                </div>
                 <label className="flex items-center gap-2 mb-4 text-xs text-gray-600 cursor-pointer w-fit">
                   <input
                     type="checkbox"
@@ -373,28 +421,31 @@ ${escalationBody}`
                 </label>
                 {app.actionItems.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-6">Belum ada action item</p>
-                ) : app.actionItems.map(ai => (
+                ) : app.actionItems.map(ai => {
+                  const effStatus = getEffectiveStatus(ai)
+                  return (
                   <div
                     key={ai.id}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg mb-2 border ${
-                      ai.status === 'overdue' ? 'border-red-200 bg-red-50' : ai.status === 'completed' ? 'border-gray-100 bg-emerald-50' : 'border-gray-100 bg-white'
+                      effStatus === 'overdue' ? 'border-red-200 bg-red-50' : effStatus === 'completed' ? 'border-gray-100 bg-emerald-50' : 'border-gray-100 bg-white'
                     }`}
                   >
-                    <input type="checkbox" checked={ai.status === 'completed'} onChange={() => toggleActionStatus(ai)} className="flex-shrink-0" />
+                    <input type="checkbox" checked={effStatus === 'completed'} onChange={() => toggleActionStatus(ai)} className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{ai.title}</div>
+                      <div className={`text-sm text-gray-900 ${effStatus === 'completed' ? 'line-through text-gray-400' : ''}`}>{ai.title}</div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-gray-500">{ai.assignee}</span>
                         <span className="text-gray-300 text-xs">•</span>
-                        <DueDateTimer dueDate={ai.dueDate} status={ai.status} />
+                        <DueDateTimer dueDate={ai.dueDate} status={effStatus} />
                       </div>
                     </div>
                     {ai.required && <Badge variant="rejected">WAJIB</Badge>}
-                    <Badge variant={aiStatusVariant(ai.status)}>{aiStatusLabel(ai.status)}</Badge>
+                    <Badge variant={aiStatusVariant(effStatus)}>{aiStatusLabel(effStatus)}</Badge>
                     <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>
                     <EscalationBadge item={ai} />
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 

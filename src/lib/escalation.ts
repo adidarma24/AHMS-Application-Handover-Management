@@ -1,4 +1,5 @@
 import type { ActionItem } from '../types'
+import { getEffectiveStatus } from './actionItemStatus'
 
 export interface EscalationInfo {
   escalated: boolean
@@ -10,7 +11,7 @@ export interface EscalationInfo {
  * Aturan eskalasi otomatis untuk action item overdue, terinspirasi dari
  * EscalationBadge di aplikasi ITSM sebelah. Belum ada tombol eskalasi
  * manual di AHMS, jadi statusnya dihitung langsung dari data yang sudah
- * ada (status + priority + dueDate), bukan field tersimpan terpisah:
+ * ada (status efektif + priority + dueDate), bukan field tersimpan terpisah:
  *
  * - "Auto-Escalated"   : item overdue yang wajib (required) atau
  *                        berprioritas high — perlu perhatian ekstra PIC/Reviewer.
@@ -18,7 +19,7 @@ export interface EscalationInfo {
  *                        overdue >= 3 hari — dianggap perlu naik ke Manager O&M.
  */
 export function getEscalation(ai: ActionItem): EscalationInfo {
-  if (ai.status !== 'overdue') {
+  if (getEffectiveStatus(ai) !== 'overdue') {
     return { escalated: false, critical: false, daysOverdue: 0 }
   }
 

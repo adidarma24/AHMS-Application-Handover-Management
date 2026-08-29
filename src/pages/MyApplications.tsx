@@ -4,6 +4,7 @@ import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import RiskScoreBar from '../components/ui/RiskScoreBar'
+import { getEffectiveStatus } from '../lib/actionItemStatus'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
 
@@ -158,9 +159,9 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                     <RiskScoreBar score={app.riskScore} />
                   </td>
                   <td className="px-5 py-3 text-xs">
-                    {app.actionItems.filter(a => a.status === 'overdue').length > 0 ? (
+                    {app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length > 0 ? (
                       <span className="text-red-600 font-semibold">
-                        {app.actionItems.filter(a => a.status === 'overdue').length} overdue
+                        {app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length} overdue
                       </span>
                     ) : (
                       <span className="text-gray-400">

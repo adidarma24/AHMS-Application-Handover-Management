@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge'
 import DueDateTimer from '../components/ui/DueDateTimer'
 import EscalationBadge from '../components/ui/EscalationBadge'
 import { getEscalation } from '../lib/escalation'
+import { getEffectiveStatus } from '../lib/actionItemStatus'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
 
@@ -27,16 +28,16 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
 
   const filtered = useMemo(() => {
     let list = allItems
-    if (filterStatus !== 'all') list = list.filter(ai => ai.status === filterStatus)
+    if (filterStatus !== 'all') list = list.filter(ai => getEffectiveStatus(ai) === filterStatus)
     if (filterPriority !== 'all') list = list.filter(ai => ai.priority === filterPriority)
     if (filterRequired === 'required') list = list.filter(ai => ai.required)
     if (currentUser.role === 'Project Manager') list = list.filter(ai => ai.pic === currentUser.name || ai.assignee === currentUser.name)
     return list
   }, [allItems, filterStatus, filterPriority, filterRequired, currentUser])
 
-  const overdueCount = filtered.filter(ai => ai.status === 'overdue').length
-  const openCount = filtered.filter(ai => ai.status === 'open').length
-  const doneCount = filtered.filter(ai => ai.status === 'completed').length
+  const overdueCount = filtered.filter(ai => getEffectiveStatus(ai) === 'overdue').length
+  const openCount = filtered.filter(ai => getEffectiveStatus(ai) === 'open').length
+  const doneCount = filtered.filter(ai => getEffectiveStatus(ai) === 'completed').length
   const escalatedCount = filtered.filter(ai => getEscalation(ai).escalated).length
 
   // Sama seperti kpiCards di Dashboard.tsx: icon dalam kotak warna + angka besar + label + sub
@@ -123,14 +124,16 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
               </tr>
             </thead>
             <tbody>
-              {filtered.map((ai, i) => (
+              {filtered.map((ai, i) => {
+                const effStatus = getEffectiveStatus(ai)
+                return (
                 <tr
                   key={i}
-                  className={`border-b border-gray-50 hover:bg-gray-50 ${ai.status === 'overdue' ? 'bg-red-50/40' : ''}`}
+                  className={`border-b border-gray-50 hover:bg-gray-50 ${effStatus === 'overdue' ? 'bg-red-50/40' : ''}`}
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-sm text-gray-900 ${ai.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                      <span className={`text-sm text-gray-900 ${effStatus === 'completed' ? 'line-through text-gray-400' : ''}`}>
                         {ai.title}
                       </span>
                       {ai.required && <Badge variant="rejected">WAJIB</Badge>}
@@ -146,14 +149,14 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
                   </td>
                   <td className="px-3 py-3 text-xs text-gray-600">{ai.assignee}</td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    <DueDateTimer dueDate={ai.dueDate} status={ai.status} />
+                    <DueDateTimer dueDate={ai.dueDate} status={effStatus} />
                   </td>
                   <td className="px-3 py-3">
                     <Badge variant={priorityVariant(ai.priority)}>{ai.priority.toUpperCase()}</Badge>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant={statusVariant(ai.status)}>{statusLabel(ai.status)}</Badge>
+                      <Badge variant={statusVariant(effStatus)}>{statusLabel(effStatus)}</Badge>
                       <EscalationBadge item={ai} />
                     </div>
                   </td>
@@ -166,7 +169,8 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-gray-400 text-xs">

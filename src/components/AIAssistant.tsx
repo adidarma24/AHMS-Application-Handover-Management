@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
+import { getEffectiveStatus } from '../lib/actionItemStatus'
 
 interface Props {
   appState: AppState
@@ -19,12 +20,12 @@ function processQuery(query: string, appState: AppState): string {
 
   if (q.includes('overdue') || q.includes('terlambat')) {
     const overdueApps = apps.filter(a =>
-      a.actionItems.some(ai => ai.status === 'overdue')
+      a.actionItems.some(ai => getEffectiveStatus(ai) === 'overdue')
     )
     if (overdueApps.length === 0) return 'Tidak ada aplikasi dengan action item overdue saat ini.'
     return `Ada ${overdueApps.length} aplikasi dengan action item overdue:\n\n` +
       overdueApps.map(a => {
-        const items = a.actionItems.filter(ai => ai.status === 'overdue')
+        const items = a.actionItems.filter(ai => getEffectiveStatus(ai) === 'overdue')
         return `• **${a.name}** — ${items.length} item overdue (PIC: ${a.pic})`
       }).join('\n')
   }
@@ -93,7 +94,7 @@ function processQuery(query: string, appState: AppState): string {
       `PIC: ${found.pic}\n` +
       `Business Owner: ${found.businessOwner}\n` +
       `Skor Risiko: ${found.riskScore}\n` +
-      `Action Items Overdue: ${found.actionItems.filter(a => a.status === 'overdue').length}`
+      `Action Items Overdue: ${found.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length}`
   }
 
   return `Maaf, saya tidak menemukan informasi yang sesuai. Coba tanyakan:\n` +
@@ -145,7 +146,7 @@ export default function AIAssistant({ appState, currentUser }: Props) {
         onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.08)')}
         onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}
       >
-        {open ? '✕' : '🤖'}
+        {open ? '✕' : '💬'}
       </button>
 
       {/* Chat panel — di mobile melebar penuh (dikurangi margin kiri-kanan)
@@ -165,10 +166,10 @@ export default function AIAssistant({ appState, currentUser }: Props) {
             <div style={{
               width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-            }}>🤖</div>
+            }}>💬</div>
             <div>
-              <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>AI AHMS Assistant</div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Powered by internal data</div>
+              <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>Asisten AHMS</div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Pencarian cepat berbasis kata kunci</div>
             </div>
           </div>
 

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, FileText, Gauge,
-  ChevronDown, ChevronUp, Mail, Plus,
+  ChevronDown, ChevronUp, Mail, Plus, Upload, RefreshCw,
 } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import Alert from '../components/ui/Alert'
 import DueDateTimer from '../components/ui/DueDateTimer'
 import EscalationBadge from '../components/ui/EscalationBadge'
 import { Modal } from '../components/ui/Modal'
@@ -53,6 +54,8 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   const [newActionPriority, setNewActionPriority] = useState<'high' | 'medium' | 'low'>('medium')
   const [newActionRequired, setNewActionRequired] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [newDocName, setNewDocName] = useState('')
+  const [newDocRequired, setNewDocRequired] = useState(true)
 
   const overdueCount = app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length
   const daysSinceSubmit = Math.floor((Date.now() - new Date(app.submittedDate).getTime()) / (1000 * 60 * 60 * 24))
@@ -67,6 +70,22 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   // dengan Berita Acara yang sudah benar mengambil nama asli dari data user.
   const managerOMName = appState.users.find(u => u.role === 'Manager O&M')?.name || 'Manager O&M'
   const managerOMEmail = appState.users.find(u => u.role === 'Manager O&M')?.email
+
+  // Yang boleh upload dokumen susulan: pihak yang langsung bertanggung jawab
+  // atas aplikasi ini (PIC Project/PIC O&M-nya sendiri) atau System Administrator —
+  // bukan sembarang role yang kebetulan sedang membuka halaman ini.
+  const canUploadDocs =
+    currentUser.name === app.pic ||
+    currentUser.name === app.picOM ||
+    currentUser.role === 'System Administrator'
+
+  const canResubmit = app.status === 'Rejected' && currentUser.name === app.pic
+
+  // Selain yang boleh upload, reviewer juga boleh menambah slot dokumen baru —
+  // dipakai saat mereka minta dokumen tambahan di luar checklist standar
+  // (PIC/O&M yang nantinya mengisi file-nya lewat tombol Upload).
+  const canAddDocSlot =
+    canUploadDocs || ['Reviewer Teknis', 'O&M Application Support', 'Manager O&M'].includes(currentUser.role)
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -124,12 +143,83 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
     onUpdateApp(app.id, { actionItems: updatedItems, history: [...app.history, historyEntry] })
   }
 
+  // Sebelumnya dokumen HANYA bisa diupload saat pengajuan awal (HandoverForm)
+  // — begitu aplikasi tersubmit, tab Dokumen di sini murni read-only, tidak
+  // ada cara upload dokumen yang belum lengkap. Karena HandoverForm sendiri
+  // mengunci submit sampai semua dokumen wajib lengkap, kombinasi ini bikin
+  // status "dokumen wajib belum lengkap" praktis mustahil terjadi lagi
+  // setelah submit — padahal di real usage O&M bisa saja minta dokumen
+  // tambahan belakangan, atau PIC menyusul upload yang sempat tertinggal.
+  function uploadDocument(docId: string, fileName: string) {
+    const updatedDocs = app.documents.map(d =>
+      d.id === docId ? { ...d, uploaded: true, uploadedAt: nowTimestamp().slice(0, 10) } : d
+    )
+    const doc = app.documents.find(d => d.id === docId)
+    const historyEntry = {
+      id: `h-${Date.now()}`,
+      timestamp: nowTimestamp(),
+      user: currentUser.name,
+      action: `Dokumen diupload: "${doc?.name}" (${fileName})`,
+    }
+    onUpdateApp(app.id, { documents: updatedDocs, history: [...app.history, historyEntry] })
+  }
+
+  // Sebelumnya tab Dokumen cuma bisa menampilkan dokumen yang sudah ada dari
+  // checklist awal (baik upload maupun ganti) — tidak ada cara menambah
+  // JENIS dokumen baru. Padahal di real usage reviewer sering minta dokumen
+  // tambahan di luar checklist standar (mis. lewat catatan review). Fungsi
+  // ini menambah slot dokumen baru (belum terupload), yang lalu bisa
+  // langsung diisi lewat tombol Upload yang sudah ada.
+  function addDocumentSlot() {
+    const name = newDocName.trim()
+    if (!name) return
+    const newDoc = {
+      id: `doc-${Date.now()}`,
+      name,
+      type: 'Tambahan',
+      uploaded: false,
+      required: newDocRequired,
+    }
+    const historyEntry = {
+      id: `h-${Date.now()}`,
+      timestamp: nowTimestamp(),
+      user: currentUser.name,
+      action: `Dokumen tambahan diminta: "${name}"${newDocRequired ? ' (WAJIB)' : ''}`,
+    }
+    onUpdateApp(app.id, { documents: [...app.documents, newDoc], history: [...app.history, historyEntry] })
+    setNewDocName('')
+    setNewDocRequired(true)
+  }
+
+  // Sebelumnya status 'Rejected' adalah jalan buntu permanen — tidak ada
+  // tombol atau alur apa pun untuk memperbaiki dokumen yang salah lalu
+  // mengajukan ulang. Fungsi ini me-reset semua reviewer kembali ke
+  // 'pending' (bukan menghapus catatan penolakan lama — tetap tersimpan di
+  // History sebagai jejak audit) dan mengembalikan status ke awal alur
+  // review, supaya PIC bisa benar-benar mengajukan ulang setelah revisi.
+  function resubmitApp() {
+    const resetReviewers = app.reviewers.map(r => ({
+      ...r, status: 'pending' as const, notes: undefined, reviewedAt: undefined,
+    }))
+    const historyEntry = {
+      id: `h-${Date.now()}`,
+      timestamp: nowTimestamp(),
+      user: currentUser.name,
+      action: 'Aplikasi diajukan ulang setelah revisi — status review direset',
+    }
+    onUpdateApp(app.id, {
+      status: 'Waiting for O&M Review',
+      reviewers: resetReviewers,
+      history: [...app.history, historyEntry],
+    })
+  }
+
   const aiInsightReasons: string[] = []
   if (overdueCount > 0) aiInsightReasons.push(`${overdueCount} action item overdue`)
   if (rejectedReviewers.length > 0) aiInsightReasons.push(`ditolak oleh ${rejectedReviewers.map(r => r.role).join(', ')}`)
   if (daysSinceSubmit > 60) aiInsightReasons.push(`sudah ${daysSinceSubmit} hari sejak pengajuan`)
   if (app.criticality === 'Critical') aiInsightReasons.push(`kritikalitas Critical`)
-  if (!app.documents.every(d => d.uploaded)) aiInsightReasons.push(`dokumen wajib belum lengkap`)
+  if (app.documents.some(d => d.required && !d.uploaded)) aiInsightReasons.push(`dokumen wajib belum lengkap`)
 
   const escalationSubject = `[ESKALASI] Hambatan Proses Handover — ${app.name}`
   const escalationBody = `Yth. Bapak/Ibu ${managerOMName},
@@ -282,6 +372,29 @@ ${escalationBody}`
         </div>
       </Card>
 
+      {/* Rejected banner — sebelumnya status Rejected adalah jalan buntu:
+          tidak ada info kenapa ditolak yang menonjol, dan tidak ada cara
+          mengajukan ulang sama sekali. Sekarang alasan penolakan dari tiap
+          reviewer ditampilkan langsung, plus tombol "Ajukan Ulang" untuk
+          PIC Project setelah dokumen/isu yang jadi alasan penolakan diperbaiki. */}
+      {app.status === 'Rejected' && (
+        <Alert variant="danger" title="Aplikasi ini ditolak">
+          {app.reviewers.filter(r => r.status === 'rejected' && r.notes).map(r => (
+            <p key={r.role}>• <strong>{r.role}</strong>: {r.notes}</p>
+          ))}
+          {canResubmit && (
+            <div className="mt-3">
+              <Button size="sm" onClick={resubmitApp}>
+                <RefreshCw size={13} /> Ajukan Ulang Setelah Revisi
+              </Button>
+              <p className="text-[11px] text-gray-500 mt-1.5">
+                Perbaiki/ganti dokumen yang bermasalah di tab Dokumen sebelum mengajukan ulang. Status review akan direset ke awal.
+              </p>
+            </div>
+          )}
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
         {/* Main content */}
         <Card padding={false}>
@@ -338,21 +451,94 @@ ${escalationBody}`
             {/* Documents */}
             {tab === 'documents' && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3.5">Dokumen Handover</h3>
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3.5">
+                  <h3 className="text-sm font-semibold text-gray-900">Dokumen Handover</h3>
+                  {app.documents.length > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {app.documents.filter(d => d.uploaded).length}/{app.documents.length} dokumen tersedia
+                    </span>
+                  )}
+                </div>
+                {!canUploadDocs && app.documents.some(d => !d.uploaded) && (
+                  <p className="text-xs text-gray-400 mb-3">
+                    Hanya PIC Project, PIC O&M, atau System Administrator yang bisa mengupload dokumen susulan.
+                  </p>
+                )}
+                {canAddDocSlot && (
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    <input
+                      value={newDocName}
+                      onChange={e => setNewDocName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addDocumentSlot()}
+                      placeholder="Nama dokumen tambahan yang diminta..."
+                      className="flex-1 min-w-[180px] px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                    />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked={newDocRequired} onChange={e => setNewDocRequired(e.target.checked)} />
+                      Wajib
+                    </label>
+                    <Button size="sm" onClick={addDocumentSlot}>
+                      <Plus size={14} /> Tambah
+                    </Button>
+                  </div>
+                )}
                 {app.documents.length === 0 ? (
                   <p className="text-sm text-gray-400">Belum ada dokumen</p>
                 ) : app.documents.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-3 px-3.5 py-3 border border-gray-100 rounded-lg mb-2">
-                    <FileText size={20} className="text-gray-400 flex-shrink-0" />
+                  <div key={doc.id} className={`flex items-center gap-3 px-3.5 py-3 border rounded-lg mb-2 ${doc.uploaded ? 'border-gray-100' : 'border-red-200 bg-red-50/40'}`}>
+                    <FileText size={20} className={`flex-shrink-0 ${doc.uploaded ? 'text-gray-400' : 'text-red-300'}`} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">{doc.name}</div>
                       <div className="text-xs text-gray-400">{doc.type} {doc.uploadedAt && `• Uploaded ${doc.uploadedAt}`}</div>
                     </div>
                     {doc.required && <Badge variant="rejected">WAJIB</Badge>}
-                    <span className={`inline-flex items-center gap-1 text-xs font-semibold flex-shrink-0 ${doc.uploaded ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {doc.uploaded ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-                      {doc.uploaded ? 'Ada' : 'Belum'}
-                    </span>
+                    {doc.uploaded ? (
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                          <CheckCircle2 size={13} /> Ada
+                        </span>
+                        {canUploadDocs && (
+                          <label
+                            htmlFor={`doc-upload-${doc.id}`}
+                            title="Ganti dengan file lain — mis. kalau file yang terupload salah dan aplikasi sempat ditolak karenanya"
+                            className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <RefreshCw size={11} /> Ganti
+                            <input
+                              id={`doc-upload-${doc.id}`}
+                              type="file"
+                              className="hidden"
+                              onChange={e => {
+                                const file = e.target.files?.[0]
+                                if (file) uploadDocument(doc.id, file.name)
+                                e.target.value = ''
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    ) : canUploadDocs ? (
+                      <label
+                        htmlFor={`doc-upload-${doc.id}`}
+                        className="inline-flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded-md px-2.5 py-1.5 cursor-pointer flex-shrink-0"
+                      >
+                        <Upload size={12} /> Upload
+                        <input
+                          id={`doc-upload-${doc.id}`}
+                          type="file"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) uploadDocument(doc.id, file.name)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold flex-shrink-0 text-red-600">
+                        <XCircle size={13} /> Belum
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

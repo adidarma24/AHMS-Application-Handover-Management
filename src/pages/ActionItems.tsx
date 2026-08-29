@@ -64,7 +64,7 @@ export default function ActionItems({ appState, currentUser, onNavigate }: Props
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map(s => (
           <Card key={s.label} className="flex items-start gap-3">
-            <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>
+            <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center shrink-0`}>
               <s.icon size={17} className={s.color} />
             </div>
             <div>

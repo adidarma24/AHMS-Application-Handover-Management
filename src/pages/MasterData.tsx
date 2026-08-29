@@ -314,10 +314,10 @@ export default function MasterData({ appState, onUpdateState }: Props) {
                           <button
                             onClick={() => toggleUser(user.id)}
                             aria-label={`Toggle status ${user.name}`}
-                            className={`w-10 h-[22px] rounded-full relative transition-colors cursor-pointer ${user.active ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                            className={`w-10 h-5.5unded-full relative transition-colors cursor-pointer ${user.active ? 'bg-indigo-600' : 'bg-gray-300'}`}
                           >
                             <span
-                              className={`absolute top-[3px] w-4 h-4 rounded-full bg-white shadow transition-all ${user.active ? 'left-[21px]' : 'left-[3px]'}`}
+                              className={`absolute top-0.75 w-4 h-4 rounded-full bg-white shadow transition-all ${user.active ? 'left-5.25' : 'left-0.75'}`}
                             />
                           </button>
                         </td>
@@ -363,7 +363,7 @@ export default function MasterData({ appState, onUpdateState }: Props) {
                   <tbody>
                     {filteredChecklist.map(ci => (
                       <tr key={ci.id} className="border-b border-gray-50 hover:bg-gray-50 last:border-b-0">
-                        <td className="px-3 py-2.5 text-gray-900 max-w-[360px]">{ci.text}</td>
+                        <td className="px-3 py-2.5 text-gray-900 max-w-90">{ci.text}</td>
                         <td className="px-3 py-2.5">
                           <div className="flex gap-1 flex-wrap">
                             {ci.criticality.map(c => (

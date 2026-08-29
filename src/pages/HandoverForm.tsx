@@ -94,27 +94,21 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
     vendor: '',
   })
 
-  // Daftar dokumen wajib mengikuti Alur Utama poin 3 pada use case AHMS.
-  // Item yang menyangkut security/performance/backup tetap mengikuti kritikalitas,
-  // sisanya wajib untuk semua aplikasi.
+  // Daftar dokumen wajib sekarang benar-benar mengikuti "Konfigurasi Checklist"
+  // di Master Data (appState.checklistItems) — sebelumnya di sini ada array
+  // 14 dokumen yang di-hardcode terpisah, sehingga halaman Master Data
+  // mengklaim "perubahan di sini memengaruhi form handover" padahal
+  // sebenarnya TIDAK ngefek sama sekali (checklistItems tidak pernah dibaca
+  // di mana pun). Item generik (tanpa `category`) berlaku untuk semua
+  // aplikasi sesuai kritikalitasnya; item dengan `category` cuma muncul
+  // kalau Kategori Aplikasi yang dipilih cocok.
   const docTypes = useMemo(
-    () => [
-      { id: 'd-new-1', name: 'Dokumen Arsitektur Aplikasi', required: true },
-      { id: 'd-new-2', name: 'Dokumen Desain Teknis', required: true },
-      { id: 'd-new-3', name: 'Dokumen Konfigurasi Environment', required: true },
-      { id: 'd-new-4', name: 'SOP Operasional', required: true },
-      { id: 'd-new-5', name: 'SOP Penanganan Gangguan (Incident Handling)', required: true },
-      { id: 'd-new-6', name: 'User Manual', required: true },
-      { id: 'd-new-7', name: 'Administrator Manual', required: true },
-      { id: 'd-new-8', name: 'Hasil UAT (User Acceptance Test)', required: true },
-      { id: 'd-new-9', name: 'Hasil Security Assessment / Vulnerability Assessment', required: form.criticality === 'Critical' || form.criticality === 'High' },
-      { id: 'd-new-10', name: 'Hasil Performance Test', required: form.criticality === 'Critical' || form.criticality === 'High' },
-      { id: 'd-new-11', name: 'Daftar Open Defect & Known Issue', required: true },
-      { id: 'd-new-12', name: 'Dokumen Backup & Recovery', required: form.criticality !== 'Low' },
-      { id: 'd-new-13', name: 'Daftar Kontak Vendor / Pihak Ketiga', required: true },
-      { id: 'd-new-14', name: 'Source Code Repository & Informasi Versioning', required: true },
-    ],
-    [form.criticality],
+    () =>
+      appState.checklistItems
+        .filter(ci => ci.criticality.includes(form.criticality))
+        .filter(ci => !ci.category || ci.category.includes(form.category))
+        .map(ci => ({ id: ci.id, name: ci.text, required: ci.required })),
+    [appState.checklistItems, form.criticality, form.category],
   )
 
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})

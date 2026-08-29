@@ -14,7 +14,7 @@ interface Props {
 function Row({ icon: Icon, label, value }: { icon: any; label: string; value?: string }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
-      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
         <Icon size={16} className="text-gray-500" />
       </div>
       <div className="min-w-0">
@@ -56,7 +56,7 @@ export default function Profile({ appState, currentUser, onLogout }: Props) {
           className="px-5 py-6 flex items-center gap-4"
           style={{ background: 'linear-gradient(135deg, #1B3A6B, #2563EB)' }}
         >
-          <div className="w-16 h-16 rounded-full bg-white/15 border-2 border-white/20 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+          <div className="w-16 h-16 rounded-full bg-white/15 border-2 border-white/20 flex items-center justify-center text-white text-lg font-bold shrink-0">
             {initials}
           </div>
           <div className="min-w-0">

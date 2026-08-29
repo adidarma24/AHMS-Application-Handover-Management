@@ -80,7 +80,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
 
       {/* Filters */}
       <Card className="flex gap-3 flex-wrap items-center">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-50">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
@@ -137,7 +137,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                   className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <td className="px-5 py-3">
-                    <div className="font-medium text-gray-900 text-sm max-w-[220px] truncate">{app.name}</div>
+                    <div className="font-medium text-gray-900 text-sm max-w-55 truncate">{app.name}</div>
                     <div className="text-xs text-gray-500 mt-0.5">{app.category} • {app.environment}</div>
                   </td>
                   <td className="px-5 py-3">
@@ -155,7 +155,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                   <td className="px-5 py-3 text-gray-600 text-xs whitespace-nowrap">
                     {app.goLiveDate}
                   </td>
-                  <td className="px-5 py-3 min-w-[110px]">
+                  <td className="px-5 py-3 min-w-27.5">
                     <RiskScoreBar score={app.riskScore} />
                   </td>
                   <td className="px-5 py-3 text-xs">

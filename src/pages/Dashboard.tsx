@@ -276,7 +276,7 @@ export default function Dashboard({
         {kpiCards.map((k) => (
           <Card key={k.label} className="flex items-start gap-3">
             <div
-              className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center flex-shrink-0`}
+              className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}
             >
               <k.icon size={17} className={k.color} />
             </div>
@@ -326,7 +326,7 @@ export default function Dashboard({
               {pieData.map((d) => (
                 <div key={d.name} className="flex items-center gap-2">
                   <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ background: d.color }}
                   />
                   <span className="text-xs text-gray-600">{d.name}</span>
@@ -514,7 +514,7 @@ export default function Dashboard({
                             </span>
                           )}
                           <span
-                            className={`ml-auto text-xs font-bold font-mono flex-shrink-0 ${
+                            className={`ml-auto text-xs font-bold font-mono shrink-0 ${
                               app.riskScore >= 70
                                 ? "text-red-600"
                                 : app.riskScore >= 50
@@ -555,7 +555,7 @@ export default function Dashboard({
                 onClick={() => onNavigate("app-detail", a.appId)}
                 className="flex gap-3 text-xs text-left w-full hover:bg-gray-50 -mx-1 px-1 py-1 rounded-md"
               >
-                <span className="text-base leading-none mt-0.5 flex-shrink-0">
+                <span className="text-base leading-none mt-0.5 shrink-0">
                   {activityIcon(a.action)}
                 </span>
                 <div>

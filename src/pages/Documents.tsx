@@ -91,7 +91,7 @@ export default function Documents({ appState, currentUser, onNavigate }: Props) 
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
         {summaryCards.map(s => (
           <Card key={s.label} className="flex items-start gap-3">
-            <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>
+            <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center shrink-0`}>
               <s.icon size={17} className={s.color} />
             </div>
             <div>
@@ -123,7 +123,7 @@ export default function Documents({ appState, currentUser, onNavigate }: Props) 
 
       {/* Filters — grid 2 kolom di mobile, sejajar mulai sm */}
       <Card className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-center">
-        <div className="relative col-span-2 sm:flex-1 sm:min-w-[200px]">
+        <div className="relative col-span-2 sm:flex-1 sm:min-w-50">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
@@ -169,14 +169,14 @@ export default function Documents({ appState, currentUser, onNavigate }: Props) 
           return (
             <Card key={app.id} padding={false}>
               <div className="flex items-center gap-2.5 px-5 py-3 border-b border-gray-100 flex-wrap">
-                <FolderOpen size={16} className="text-gray-400 flex-shrink-0" />
+                <FolderOpen size={16} className="text-gray-400 shrink-0" />
                 <button
                   onClick={() => onNavigate('app-detail', app.id)}
                   className="text-sm font-semibold text-gray-900 hover:text-indigo-600 hover:underline text-left min-w-0 truncate"
                 >
                   {app.name}
                 </button>
-                <span className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
+                <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
                   <User size={11} /> {app.pic}
                 </span>
                 {requiredDocs.length > 0 && (
@@ -184,7 +184,7 @@ export default function Documents({ appState, currentUser, onNavigate }: Props) 
                     {requiredUploaded}/{requiredDocs.length} wajib
                   </Badge>
                 )}
-                <span className="ml-auto text-xs text-gray-400 flex-shrink-0">{app.documents.length} dokumen</span>
+                <span className="ml-auto text-xs text-gray-400 shrink-0">{app.documents.length} dokumen</span>
               </div>
               <div>
                 {app.documents.map(doc => (
@@ -192,7 +192,7 @@ export default function Documents({ appState, currentUser, onNavigate }: Props) 
                     key={doc.id}
                     className={`flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-b-0 ${!doc.uploaded ? 'bg-red-50/40' : ''}`}
                   >
-                    <File size={18} className={`flex-shrink-0 ${doc.uploaded ? 'text-gray-400' : 'text-red-300'}`} />
+                    <File size={18} className={`shrink-0 ${doc.uploaded ? 'text-gray-400' : 'text-red-300'}`} />
                     <div className="flex-1 min-w-0">
                       <div className={`text-sm truncate ${doc.uploaded ? 'text-gray-900' : 'text-red-600'}`}>{doc.name}</div>
                       <div className="text-xs text-gray-400">
@@ -206,14 +206,14 @@ export default function Documents({ appState, currentUser, onNavigate }: Props) 
                       <button
                         onClick={() => alert(`Unduh ${doc.name} — demo, belum ada penyimpanan file sungguhan`)}
                         title="Demo: belum ada penyimpanan file sungguhan di backend"
-                        className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 rounded-md px-2.5 py-1.5 hover:bg-gray-50 flex-shrink-0"
+                        className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 rounded-md px-2.5 py-1.5 hover:bg-gray-50 shrink-0"
                       >
                         <Download size={12} /> Unduh
                       </button>
                     ) : (
                       <button
                         onClick={() => onNavigate('app-detail', app.id)}
-                        className="text-xs text-indigo-600 hover:underline flex-shrink-0"
+                        className="text-xs text-indigo-600 hover:underline shrink-0"
                       >
                         Upload →
                       </button>

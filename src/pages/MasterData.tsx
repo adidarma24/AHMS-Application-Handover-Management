@@ -5,6 +5,7 @@ import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import { Modal, ConfirmModal } from '../components/ui/Modal'
+import { APPLICATION_CATEGORIES } from '../lib/categories'
 
 interface Props {
   appState: AppState
@@ -146,11 +147,13 @@ export default function MasterData({ appState, onUpdateState }: Props) {
   }
 
   function handleSaveChecklist() {
+    const category = (formData.category || '').split(',').filter(Boolean)
     const item: ChecklistItem = {
       id: editId || `cl-${Date.now()}`,
       text: formData.text!.trim(),
       criticality: (formData.criticality || '').split(',').filter(Boolean) as Criticality[],
       required: formData.required === 'true',
+      ...(category.length > 0 ? { category } : {}),
     }
     const list = editId ? appState.checklistItems.map(c => (c.id === editId ? item : c)) : [...appState.checklistItems, item]
     onUpdateState({ checklistItems: list })
@@ -314,10 +317,10 @@ export default function MasterData({ appState, onUpdateState }: Props) {
                           <button
                             onClick={() => toggleUser(user.id)}
                             aria-label={`Toggle status ${user.name}`}
-                            className={`w-10 h-5.5unded-full relative transition-colors cursor-pointer ${user.active ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                            className={`w-10 h-[22px] rounded-full relative transition-colors cursor-pointer ${user.active ? 'bg-indigo-600' : 'bg-gray-300'}`}
                           >
                             <span
-                              className={`absolute top-0.75 w-4 h-4 rounded-full bg-white shadow transition-all ${user.active ? 'left-5.25' : 'left-0.75'}`}
+                              className={`absolute top-[3px] w-4 h-4 rounded-full bg-white shadow transition-all ${user.active ? 'left-[21px]' : 'left-[3px]'}`}
                             />
                           </button>
                         </td>
@@ -363,7 +366,12 @@ export default function MasterData({ appState, onUpdateState }: Props) {
                   <tbody>
                     {filteredChecklist.map(ci => (
                       <tr key={ci.id} className="border-b border-gray-50 hover:bg-gray-50 last:border-b-0">
-                        <td className="px-3 py-2.5 text-gray-900 max-w-90">{ci.text}</td>
+                        <td className="px-3 py-2.5 text-gray-900 max-w-[360px]">
+                          {ci.text}
+                          {ci.category && ci.category.length > 0 && (
+                            <div className="text-[11px] text-indigo-500 mt-0.5">Khusus kategori: {ci.category.join(', ')}</div>
+                          )}
+                        </td>
                         <td className="px-3 py-2.5">
                           <div className="flex gap-1 flex-wrap">
                             {ci.criticality.map(c => (
@@ -377,7 +385,7 @@ export default function MasterData({ appState, onUpdateState }: Props) {
                         <td className="px-3 py-2.5">
                           <div className="flex gap-1.5">
                             <button
-                              onClick={() => openEdit(ci.id, { text: ci.text, criticality: ci.criticality.join(','), required: ci.required ? 'true' : 'false' })}
+                              onClick={() => openEdit(ci.id, { text: ci.text, criticality: ci.criticality.join(','), required: ci.required ? 'true' : 'false', category: (ci.category || []).join(',') })}
                               className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50"
                             >
                               <Pencil size={11} /> Edit
@@ -497,6 +505,31 @@ export default function MasterData({ appState, onUpdateState }: Props) {
                   <option value="true">Wajib</option>
                   <option value="false">Opsional</option>
                 </select>
+              </Field>
+              <Field label="Batasi ke Kategori Aplikasi tertentu (opsional)">
+                <div className="flex gap-x-3 gap-y-1.5 flex-wrap mt-1 max-h-32 overflow-y-auto pr-1">
+                  {APPLICATION_CATEGORIES.map(cat => {
+                    const current = (formData.category || '').split(',').filter(Boolean)
+                    const checked = current.includes(cat)
+                    return (
+                      <label key={cat} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const updated = e.target.checked ? [...current, cat] : current.filter(x => x !== cat)
+                            f('category', updated.join(','))
+                          }}
+                          className="accent-indigo-600"
+                        />
+                        {cat}
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Kosongkan supaya item ini berlaku untuk SEMUA kategori aplikasi (sesuai kritikalitasnya). Kalau dicentang, item cuma muncul untuk aplikasi dengan Kategori Aplikasi yang cocok.
+                </p>
               </Field>
             </>
           )}

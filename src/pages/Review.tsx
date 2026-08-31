@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AppState, Application, ReviewDecision, Role } from '../types'
 import type { Page } from '../App'
 import { getStatusBadgeClass } from '../data'
+import { getEffectiveStatus } from '../lib/actionItemStatus'
 
 interface Props {
   appState: AppState
@@ -62,9 +63,16 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
     const allDone = updatedReviewers.every(r => r.status !== 'pending')
     const anyRejected = updatedReviewers.some(r => r.status === 'rejected')
 
+    // Sebelumnya status baru jadi 'Rejected' kalau SEMUA reviewer sudah
+    // memberi keputusan (allDone && anyRejected) — jadi kalau baru 1 dari 3
+    // reviewer yang menolak, status tetap nyangkut di 'Waiting for O&M
+    // Review'/'Under Technical Review' selamanya sampai 2 reviewer lain
+    // sempat-sempatnya review sesuatu yang sudah pasti ditolak. Sekarang:
+    // begitu ADA satu reviewer yang reject, aplikasi langsung berstatus
+    // Rejected — tidak perlu menunggu reviewer lain yang belum sempat lihat.
     let newStatus = selectedApp.status
-    if (allDone && anyRejected) newStatus = 'Rejected'
-    else if (allDone && !anyRejected) newStatus = 'Approved'
+    if (anyRejected) newStatus = 'Rejected'
+    else if (allDone) newStatus = 'Approved'
     else if (decision !== 'rejected') newStatus = 'Under Technical Review'
 
     const newHistory = [
@@ -110,7 +118,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
 
   if (submitted) {
     return (
-      <div className="max-w-125 mx-auto mt-10 sm:mt-16 text-center px-4">
+      <div className="max-w-[500px] mx-auto mt-10 sm:mt-16 text-center px-4">
         <div className="text-5xl mb-4">
           {decision === 'approved' ? '✅' : decision === 'approved_with_condition' ? '⚠️' : '❌'}
         </div>
@@ -131,7 +139,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
   if (selectedApp && !isManagerOM) {
     const myReview = selectedApp.reviewers.find(r => r.role === currentUser.role)
     return (
-      <div className="max-w-180 mx-auto">
+      <div className="max-w-[720px] mx-auto">
         <button
           onClick={() => { setSelectedAppId(null); setDecision(null); setNotes('') }}
           className="bg-transparent border-none cursor-pointer text-indigo-600 text-sm mb-4 p-0"
@@ -146,7 +154,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
               <p className="text-[13px] text-gray-500">{selectedApp.description}</p>
             </div>
             <span
-              className={`badge ${getStatusBadgeClass(selectedApp.status)} self-start shrink-0`}
+              className={`badge ${getStatusBadgeClass(selectedApp.status)} self-start flex-shrink-0`}
               style={{ padding: '4px 10px', borderRadius: 10, fontSize: 12 }}
             >
               {selectedApp.status}
@@ -167,7 +175,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
             ].map(([label, value], i) => (
               <div key={i} className="px-3 py-2 bg-gray-50 rounded-md min-w-0">
                 <div className="text-[11px] text-gray-500 font-medium">{label as string}</div>
-                <div className="text-[13px] text-gray-900 mt-0.5 wrap-break-word">{value}</div>
+                <div className="text-[13px] text-gray-900 mt-0.5 break-words">{value}</div>
               </div>
             ))}
           </div>
@@ -181,7 +189,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
           ) : selectedApp.documents.map(doc => (
             <div key={doc.id} className="flex items-center gap-2.5 flex-wrap py-1.5 border-b border-gray-100 last:border-b-0">
               <span className={doc.uploaded ? 'text-emerald-600' : 'text-red-600'}>{doc.uploaded ? '✓' : '✗'}</span>
-              <span className="text-[13px] text-gray-700 min-w-0 wrap-break-word">{doc.name}</span>
+              <span className="text-[13px] text-gray-700 min-w-0 break-words">{doc.name}</span>
               {doc.required && <span className="text-[10px] text-red-600 font-semibold">WAJIB</span>}
               {doc.uploadedAt && <span className="text-[11px] text-gray-400 sm:ml-auto">{doc.uploadedAt}</span>}
             </div>
@@ -260,7 +268,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
   if (isManagerOM && selectedApp) {
     const canApprove = canFinalApprove(selectedApp)
     return (
-      <div className="max-w-180 mx-auto">
+      <div className="max-w-[720px] mx-auto">
         <button onClick={() => setSelectedAppId(null)} className="bg-transparent border-none cursor-pointer text-indigo-600 text-sm mb-4 p-0">
           ← Kembali
         </button>
@@ -270,7 +278,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Status Reviewer</h3>
           {selectedApp.reviewers.map(r => (
             <div key={r.role} className="flex items-center gap-3 flex-wrap px-3.5 py-2.5 bg-gray-50 rounded-lg mb-2">
-              <span className="text-lg shrink-0">
+              <span className="text-lg flex-shrink-0">
                 {r.status === 'approved' || r.status === 'approved_with_condition' ? '✅' : r.status === 'rejected' ? '❌' : '⏳'}
               </span>
               <div className="flex-1 min-w-0">
@@ -278,7 +286,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
                 <div className="text-[11px] text-gray-500">{r.role}</div>
               </div>
               <span
-                className="text-xs font-semibold shrink-0"
+                className="text-xs font-semibold flex-shrink-0"
                 style={{ color: r.status === 'approved' || r.status === 'approved_with_condition' ? '#16A34A' : r.status === 'rejected' ? '#dc2626' : '#d97706' }}
               >
                 {r.status === 'approved' ? 'Approved' : r.status === 'approved_with_condition' ? 'Approved w/ Condition' : r.status === 'rejected' ? 'Rejected' : 'Pending'}
@@ -350,8 +358,8 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
                     <div className="flex gap-x-4 gap-y-1 flex-wrap text-xs text-gray-700">
                       <span>PIC Project: {app.pic}</span>
                       <span>Go-Live: {app.goLiveDate}</span>
-                      {app.actionItems.filter(a => a.status === 'overdue').length > 0 && (
-                        <span className="text-red-600 font-semibold">⚠ {app.actionItems.filter(a => a.status === 'overdue').length} overdue</span>
+                      {app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length > 0 && (
+                        <span className="text-red-600 font-semibold">⚠ {app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length} overdue</span>
                       )}
                     </div>
                     {isManagerOM && (
@@ -369,7 +377,7 @@ export default function Review({ appState, currentUser, onNavigate, onUpdateApp 
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-2 shrink-0">
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-2 flex-shrink-0">
                     {isManagerOM ? (
                       <span className="text-xs font-semibold" style={{ color: canApprove ? '#16A34A' : '#d97706' }}>
                         {canApprove ? '✓ Siap final approval' : '⏳ Belum siap'}

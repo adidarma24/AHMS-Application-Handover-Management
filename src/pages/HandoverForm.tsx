@@ -13,6 +13,7 @@ import type { Page } from '../App'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import { APPLICATION_CATEGORIES } from '../lib/categories'
 
 interface Props {
   appState: AppState
@@ -68,8 +69,12 @@ function calculateRiskScore(criticality: Criticality, goLiveDate: string) {
 }
 
 function riskMeta(score: number) {
+  // Threshold disamakan dengan RiskScoreBar/MyApplications/Reports/ApplicationDetail
+  // (70/50) — sebelumnya di sini masih pakai ambang lama (70/40), jadi skor
+  // yang sama bisa tampil "Sedang" di preview form ini tapi "Rendah" begitu
+  // aplikasi tersimpan dan dilihat di halaman lain.
   if (score >= 70) return { label: 'Tinggi', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', dot: '#dc2626' }
-  if (score >= 40) return { label: 'Sedang', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', dot: '#d97706' }
+  if (score >= 50) return { label: 'Sedang', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', dot: '#d97706' }
   return { label: 'Rendah', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: '#16A34A' }
 }
 
@@ -396,7 +401,7 @@ export default function HandoverForm({ appState, currentUser, onNavigate, onAddA
               <Field label="Kategori">
                 <select value={form.category} onChange={e => f('category', e.target.value)} className={inputCls()}>
                   <option value="">-- Pilih Kategori --</option>
-                  {['Operations', 'Upstream', 'Production', 'Drilling', 'Integrity', 'HSE', 'Finance', 'Procurement', 'Supply Chain', 'Trading', 'Analytics', 'Geoscience', 'Geospatial', 'Asset', 'Maintenance', 'Laboratory', 'Compliance', 'HR', 'Document'].map(c => <option key={c}>{c}</option>)}
+                  {APPLICATION_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="Business Owner *" error={errors.businessOwner}>

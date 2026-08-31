@@ -24,8 +24,10 @@ import {
   X,
 } from 'lucide-react'
 import Card from '../components/ui/Card'
+import { getEffectiveRiskScore } from '../lib/riskScore'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import { getEffectiveStatus } from '../lib/actionItemStatus'
 import type { AppState, Role } from '../types'
 
 interface Props {
@@ -119,7 +121,7 @@ export default function Reports({ appState }: Props) {
 
   const uniquePICs = [...new Set(appState.applications.map(a => a.pic))]
 
-  const avgRisk = apps.length > 0 ? Math.round(apps.reduce((sum, a) => sum + a.riskScore, 0) / apps.length) : 0
+  const avgRisk = apps.length > 0 ? Math.round(apps.reduce((sum, a) => sum + getEffectiveRiskScore(a), 0) / apps.length) : 0
   const acceptedCount = apps.filter(a => a.status === 'Handover Accepted').length
   const rejectedCount = apps.filter(a => a.status === 'Rejected').length
 
@@ -137,8 +139,8 @@ export default function Reports({ appState }: Props) {
       'Business Owner': a.businessOwner,
       'Tanggal Submit': a.submittedDate,
       'Target Go-Live': a.goLiveDate,
-      'Skor Risiko': a.riskScore,
-      'Action Item Overdue': a.actionItems.filter(ai => ai.status === 'overdue').length,
+      'Skor Risiko': getEffectiveRiskScore(a),
+      'Action Item Overdue': a.actionItems.filter(ai => getEffectiveStatus(ai) === 'overdue').length,
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     ws['!cols'] = [
@@ -402,7 +404,8 @@ export default function Reports({ appState }: Props) {
             </thead>
             <tbody>
               {apps.slice(0, 15).map(app => {
-                const overdue = app.actionItems.filter(a => a.status === 'overdue').length
+                const overdue = app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length
+                const risk = getEffectiveRiskScore(app)
                 return (
                   <tr key={app.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900 text-sm max-w-[220px] truncate">{app.name}</td>
@@ -416,11 +419,11 @@ export default function Reports({ appState }: Props) {
                     <td className="px-5 py-3 text-gray-600 text-xs whitespace-nowrap">{app.goLiveDate}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                        app.riskScore >= 70 ? 'bg-red-50 text-red-600' :
-                        app.riskScore >= 50 ? 'bg-amber-50 text-amber-600' :
+                        risk >= 70 ? 'bg-red-50 text-red-600' :
+                        risk >= 50 ? 'bg-amber-50 text-amber-600' :
                         'bg-emerald-50 text-emerald-600'
                       }`}>
-                        {app.riskScore}
+                        {risk}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-xs">
@@ -447,17 +450,18 @@ export default function Reports({ appState }: Props) {
         {/* Mobile: kartu ringkas, bukan tabel yang harus digeser horizontal */}
         <div className="md:hidden divide-y divide-gray-50">
           {apps.slice(0, 15).map(app => {
-            const overdue = app.actionItems.filter(a => a.status === 'overdue').length
+            const overdue = app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length
+            const risk = getEffectiveRiskScore(app)
             return (
               <div key={app.id} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm font-medium text-gray-900 min-w-0 truncate">{app.name}</p>
                   <span className={`flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                    app.riskScore >= 70 ? 'bg-red-50 text-red-600' :
-                    app.riskScore >= 50 ? 'bg-amber-50 text-amber-600' :
+                    risk >= 70 ? 'bg-red-50 text-red-600' :
+                    risk >= 50 ? 'bg-amber-50 text-amber-600' :
                     'bg-emerald-50 text-emerald-600'
                   }`}>
-                    {app.riskScore}
+                    {risk}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap mt-1.5">

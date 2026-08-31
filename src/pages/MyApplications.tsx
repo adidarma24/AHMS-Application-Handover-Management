@@ -4,6 +4,7 @@ import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import RiskScoreBar from '../components/ui/RiskScoreBar'
+import { getEffectiveRiskScore } from '../lib/riskScore'
 import { getEffectiveStatus } from '../lib/actionItemStatus'
 import type { AppState, Role } from '../types'
 import type { Page } from '../App'
@@ -42,7 +43,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
     if (filterCrit !== 'all') list = list.filter(a => a.criticality === filterCrit)
 
     return list.sort((a, b) => {
-      if (sortBy === 'riskScore') return b.riskScore - a.riskScore
+      if (sortBy === 'riskScore') return getEffectiveRiskScore(b) - getEffectiveRiskScore(a)
       if (sortBy === 'name') return a.name.localeCompare(b.name)
       return new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime()
     })
@@ -80,7 +81,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
 
       {/* Filters */}
       <Card className="flex gap-3 flex-wrap items-center">
-        <div className="relative flex-1 min-w-50">
+        <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
@@ -137,7 +138,7 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                   className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <td className="px-5 py-3">
-                    <div className="font-medium text-gray-900 text-sm max-w-55 truncate">{app.name}</div>
+                    <div className="font-medium text-gray-900 text-sm max-w-[220px] truncate">{app.name}</div>
                     <div className="text-xs text-gray-500 mt-0.5">{app.category} • {app.environment}</div>
                   </td>
                   <td className="px-5 py-3">
@@ -155,8 +156,8 @@ export default function MyApplications({ appState, currentUser, onNavigate }: Pr
                   <td className="px-5 py-3 text-gray-600 text-xs whitespace-nowrap">
                     {app.goLiveDate}
                   </td>
-                  <td className="px-5 py-3 min-w-27.5">
-                    <RiskScoreBar score={app.riskScore} />
+                  <td className="px-5 py-3 min-w-[110px]">
+                    <RiskScoreBar score={getEffectiveRiskScore(app)} />
                   </td>
                   <td className="px-5 py-3 text-xs">
                     {app.actionItems.filter(a => getEffectiveStatus(a) === 'overdue').length > 0 ? (

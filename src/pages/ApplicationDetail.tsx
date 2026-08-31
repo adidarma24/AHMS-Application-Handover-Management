@@ -11,6 +11,7 @@ import DueDateTimer from '../components/ui/DueDateTimer'
 import EscalationBadge from '../components/ui/EscalationBadge'
 import { Modal } from '../components/ui/Modal'
 import { getEffectiveStatus } from '../lib/actionItemStatus'
+import { getEffectiveRiskScore } from '../lib/riskScore'
 import type { AppState, Application, AppStatus, Criticality, Role } from '../types'
 import type { Page } from '../App'
 
@@ -61,9 +62,10 @@ export default function ApplicationDetail({ app, appState, currentUser, onNaviga
   const daysSinceSubmit = Math.floor((Date.now() - new Date(app.submittedDate).getTime()) / (1000 * 60 * 60 * 24))
   const rejectedReviewers = app.reviewers.filter(r => r.status === 'rejected')
 
-  const riskLevel = app.riskScore >= 70 ? 'Tinggi' : app.riskScore >= 50 ? 'Sedang' : 'Rendah'
-  const riskColor = app.riskScore >= 70 ? '#dc2626' : app.riskScore >= 50 ? '#d97706' : '#16A34A'
-  const riskBg = app.riskScore >= 70 ? 'bg-red-50' : app.riskScore >= 50 ? 'bg-amber-50' : 'bg-emerald-50'
+  const effectiveRiskScore = getEffectiveRiskScore(app)
+  const riskLevel = effectiveRiskScore >= 70 ? 'Tinggi' : effectiveRiskScore >= 50 ? 'Sedang' : 'Rendah'
+  const riskColor = effectiveRiskScore >= 70 ? '#dc2626' : effectiveRiskScore >= 50 ? '#d97706' : '#16A34A'
+  const riskBg = effectiveRiskScore >= 70 ? 'bg-red-50' : effectiveRiskScore >= 50 ? 'bg-amber-50' : 'bg-emerald-50'
 
   // Dipakai baik di draft eskalasi maupun Berita Acara — sebelumnya draft
   // eskalasi cuma nulis "Manager Divisi IT & O&M" generik, tidak konsisten
@@ -758,10 +760,10 @@ ${escalationBody}`
                 <div className="text-center mb-3.5">
                   <div
                     className="w-[72px] h-[72px] rounded-full mx-auto mb-2 flex items-center justify-center"
-                    style={{ background: `conic-gradient(${riskColor} ${app.riskScore * 3.6}deg, #e8edf3 0deg)` }}
+                    style={{ background: `conic-gradient(${riskColor} ${effectiveRiskScore * 3.6}deg, #e8edf3 0deg)` }}
                   >
                     <div className="w-[52px] h-[52px] rounded-full bg-white flex items-center justify-center">
-                      <span className="text-base font-extrabold" style={{ color: riskColor }}>{app.riskScore}</span>
+                      <span className="text-base font-extrabold" style={{ color: riskColor }}>{effectiveRiskScore}</span>
                     </div>
                   </div>
                   <div className="text-xs font-bold" style={{ color: riskColor }}>Risiko {riskLevel}</div>
@@ -784,7 +786,7 @@ ${escalationBody}`
           </Card>
 
           {/* Escalation */}
-          {app.riskScore >= 50 && (
+          {effectiveRiskScore >= 50 && (
             <button
               onClick={() => setShowEscModal(true)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-100 transition-colors"

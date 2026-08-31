@@ -33,6 +33,7 @@ import {
 import type { AppState, Role } from "../types";
 import type { Page } from "../App";
 import { getEffectiveStatus } from "../lib/actionItemStatus";
+import { getEffectiveRiskScore } from "../lib/riskScore";
 
 interface Props {
   appState: AppState;
@@ -56,6 +57,17 @@ const MONTH_LABELS = [
 ];
 
 const ANNUAL_TARGET = 100; // Disesuaikan dengan target di desain baru
+
+// Label pendek untuk sumbu X chart "Aplikasi per Status" — versi lengkapnya
+// ("Waiting for O&M Review", dst) kepanjangan untuk chart sekecil ini.
+const STATUS_SHORT_LABEL: Record<string, string> = {
+  Draft: "Draft",
+  "Waiting for O&M Review": "Waiting O&M",
+  "Under Technical Review": "Under Review",
+  Rejected: "Rejected",
+  Approved: "Approved",
+  "Handover Accepted": "Accepted",
+};
 
 // Sama seperti di MyApplications.tsx/Reports.tsx — dipakai supaya badge di
 // kartu "Aplikasi Perlu Perhatian" dapat warna yang benar (lihat catatan bug
@@ -102,7 +114,7 @@ export default function Dashboard({
         sum + a.actionItems.filter((ai) => getEffectiveStatus(ai) === "overdue").length,
       0,
     );
-    const highRiskCount = apps.filter((a) => a.riskScore >= 50).length;
+    const highRiskCount = apps.filter((a) => getEffectiveRiskScore(a) >= 50).length;
     return { realisasi, backlog, overdueCount, highRiskCount };
   }, [apps]);
 
@@ -189,11 +201,11 @@ export default function Dashboard({
     return apps
       .filter(
         (a) =>
-          a.riskScore >= 50 ||
+          getEffectiveRiskScore(a) >= 50 ||
           a.status === "Rejected" ||
           a.actionItems.some((ai) => getEffectiveStatus(ai) === "overdue"),
       )
-      .sort((a, b) => b.riskScore - a.riskScore)
+      .sort((a, b) => getEffectiveRiskScore(b) - getEffectiveRiskScore(a))
       .slice(0, 5); // Dibatasi 5 seperti contoh baru
   }, [apps]);
 
@@ -276,7 +288,7 @@ export default function Dashboard({
         {kpiCards.map((k) => (
           <Card key={k.label} className="flex items-start gap-3">
             <div
-              className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}
+              className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center flex-shrink-0`}
             >
               <k.icon size={17} className={k.color} />
             </div>
@@ -326,7 +338,7 @@ export default function Dashboard({
               {pieData.map((d) => (
                 <div key={d.name} className="flex items-center gap-2">
                   <div
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ background: d.color }}
                   />
                   <span className="text-xs text-gray-600">{d.name}</span>
@@ -356,7 +368,7 @@ export default function Dashboard({
             <p className="text-xs text-gray-400">Distribusi status saat ini</p>
           </div>
           <ResponsiveContainer width="100%" height={130}>
-            <BarChart data={statusDist} barSize={24}>
+            <BarChart data={statusDist} barSize={24} margin={{ top: 5, right: 8, bottom: 5, left: 8 }}>
               <XAxis
                 dataKey="status"
                 tick={{ fontSize: 9, fill: "#9ca3af" }}
@@ -366,6 +378,12 @@ export default function Dashboard({
                 angle={-15}
                 textAnchor="end"
                 height={30}
+                // Label status penuh ("Waiting for O&M Review", "Under Technical
+                // Review", dst) kepanjangan buat ruang sekecil ini — dengan
+                // angle -15 derajat, huruf awalnya kepotong di tepi kiri chart
+                // (mis. "Handover Accepted" tampil "ver Accepted"). Dipendekkan
+                // dulu di sini, bukan andalkan sudut kemiringan supaya muat.
+                tickFormatter={(status: string) => STATUS_SHORT_LABEL[status] || status}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: "#9ca3af" }}
@@ -473,6 +491,7 @@ export default function Dashboard({
                     const overdueCount = app.actionItems.filter(
                       (ai) => getEffectiveStatus(ai) === "overdue",
                     ).length;
+                    const risk = getEffectiveRiskScore(app);
                     return (
                       <button
                         key={app.id}
@@ -514,15 +533,15 @@ export default function Dashboard({
                             </span>
                           )}
                           <span
-                            className={`ml-auto text-xs font-bold font-mono shrink-0 ${
-                              app.riskScore >= 70
+                            className={`ml-auto text-xs font-bold font-mono flex-shrink-0 ${
+                              risk >= 70
                                 ? "text-red-600"
-                                : app.riskScore >= 50
+                                : risk >= 50
                                   ? "text-amber-600"
                                   : "text-gray-400"
                             }`}
                           >
-                            Risk {app.riskScore}
+                            Risk {risk}
                           </span>
                         </div>
                       </button>
@@ -555,7 +574,7 @@ export default function Dashboard({
                 onClick={() => onNavigate("app-detail", a.appId)}
                 className="flex gap-3 text-xs text-left w-full hover:bg-gray-50 -mx-1 px-1 py-1 rounded-md"
               >
-                <span className="text-base leading-none mt-0.5 shrink-0">
+                <span className="text-base leading-none mt-0.5 flex-shrink-0">
                   {activityIcon(a.action)}
                 </span>
                 <div>
